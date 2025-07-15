@@ -422,20 +422,19 @@
 
         // --- シングルプレイ用タッチ・ボタン操作ハンドラ ---
         // プレイヤー操作状態
-        const playerControlRef = useRef({ left: false, right: false, jump: false });
+        const playerControlRef = useRef({ vx: 0, jump: false });
         // ジョイスティック状態
-        const joystickRef = useRef({ active: false, startX: 0, startY: 0, currentX: 0, currentY: 0, centerX: 100, centerY: GAME_HEIGHT - 100, radius: 50 });
+        const joystickRef = useRef({ active: false, centerX: 0, centerY: 0, currentX: 0, currentY: 0, radius: 50 });
         // キーイベント
         useEffect(() => {
             const down = (e) => {
                 if (e.repeat) return;
-                if (e.key === 'ArrowLeft') playerControlRef.current.left = true;
-                if (e.key === 'ArrowRight') playerControlRef.current.right = true;
+                if (e.key === 'ArrowLeft') playerControlRef.current.vx = -SLIME_SPEED;
+                if (e.key === 'ArrowRight') playerControlRef.current.vx = SLIME_SPEED;
                 if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = true;
             };
             const up = (e) => {
-                if (e.key === 'ArrowLeft') playerControlRef.current.left = false;
-                if (e.key === 'ArrowRight') playerControlRef.current.right = false;
+                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') playerControlRef.current.vx = 0;
                 if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = false;
             };
             window.addEventListener('keydown', down);
@@ -450,21 +449,22 @@
         useEffect(() => {
             const canvas = canvasRef.current;
             if (!canvas) return;
-            let touchIndex = {}; // マルチタッチID追跡
+            let touchIdentifiers = {}; // マルチタッチ追跡
+            const scaleX = GAME_WIDTH / canvas.clientWidth;
+            const scaleY = GAME_HEIGHT / canvas.clientHeight;
             const handleTouchStart = (e) => {
                 e.preventDefault();
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    const touch = e.changedTouches[i];
-                    touchIndex[touch.identifier] = touch;
-                    if (!joystickRef.current.active && touch.clientX < window.innerWidth / 2 && touch.clientY > window.innerHeight / 2) {
-                        // ジョイスティック開始
+                for (let touch of e.changedTouches) {
+                    touchIdentifiers[touch.identifier] = true;
+                    const x = touch.clientX * scaleX;
+                    const y = touch.clientY * scaleY;
+                    if (!joystickRef.current.active && x < GAME_WIDTH / 2 && y > GAME_HEIGHT / 2) {
+                        // ジョイスティック活性化
                         joystickRef.current.active = true;
-                        joystickRef.current.startX = touch.clientX * (GAME_WIDTH / window.innerWidth);
-                        joystickRef.current.startY = touch.clientY * (GAME_HEIGHT / window.innerHeight);
-                        joystickRef.current.centerX = joystickRef.current.startX;
-                        joystickRef.current.centerY = joystickRef.current.startY;
-                        joystickRef.current.currentX = joystickRef.current.startX;
-                        joystickRef.current.currentY = joystickRef.current.startY;
+                        joystickRef.current.centerX = x;
+                        joystickRef.current.centerY = y;
+                        joystickRef.current.currentX = x;
+                        joystickRef.current.currentY = y;
                     } else {
                         // ジョイスティック外: ジャンプ
                         playerControlRef.current.jump = true;
@@ -473,33 +473,35 @@
             };
             const handleTouchMove = (e) => {
                 e.preventDefault();
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    const touch = e.changedTouches[i];
-                    if (joystickRef.current.active && touchIndex[touch.identifier]) {
-                        joystickRef.current.currentX = touch.clientX * (GAME_WIDTH / window.innerWidth);
-                        joystickRef.current.currentY = touch.clientY * (GAME_HEIGHT / window.innerHeight);
-                        // 偏差計算
-                        const dx = joystickRef.current.currentX - joystickRef.current.centerX;
-                        const dy = joystickRef.current.currentY - joystickRef.current.centerY;
+                for (let touch of e.touches) {
+                    if (joystickRef.current.active && touchIdentifiers[touch.identifier]) {
+                        const x = touch.clientX * scaleX;
+                        const y = touch.clientY * scaleY;
+                        const dx = x - joystickRef.current.centerX;
+                        const dy = y - joystickRef.current.centerY;
                         const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist > joystickRef.current.radius) {
+                        const maxDist = joystickRef.current.radius;
+                        if (dist > maxDist) {
                             const angle = Math.atan2(dy, dx);
-                            joystickRef.current.currentX = joystickRef.current.centerX + Math.cos(angle) * joystickRef.current.radius;
-                            joystickRef.current.currentY = joystickRef.current.centerY + Math.sin(angle) * joystickRef.current.radius;
+                            joystickRef.current.currentX = joystickRef.current.centerX + Math.cos(angle) * maxDist;
+                            joystickRef.current.currentY = joystickRef.current.centerY + Math.sin(angle) * maxDist;
+                        } else {
+                            joystickRef.current.currentX = x;
+                            joystickRef.current.currentY = y;
                         }
+                        // vx更新 (水平移動のみ)
+                        playerControlRef.current.vx = (dx / maxDist) * SLIME_SPEED * getCharStats(playerCharId).speed;
                     }
                 }
             };
             const handleTouchEnd = (e) => {
                 e.preventDefault();
-                for (let i = 0; i < e.changedTouches.length; i++) {
-                    const touch = e.changedTouches[i];
-                    delete touchIndex[touch.identifier];
-                    if (joystickRef.current.active) {
-                        joystickRef.current.active = false;
-                        playerControlRef.current.left = false;
-                        playerControlRef.current.right = false;
-                    }
+                for (let touch of e.changedTouches) {
+                    delete touchIdentifiers[touch.identifier];
+                }
+                if (Object.keys(touchIdentifiers).length === 0) {
+                    joystickRef.current.active = false;
+                    playerControlRef.current.vx = 0;
                     playerControlRef.current.jump = false;
                 }
             };
@@ -511,37 +513,29 @@
                 canvas.removeEventListener('touchmove', handleTouchMove);
                 canvas.removeEventListener('touchend', handleTouchEnd);
             };
-        }, [gameStarted]);
+        }, [gameStarted, playerCharId]);
 
         // updatePhysics: ジョイスティック入力反映
         const updatePhysics = useCallback((currentTime) => {
             const state = gameStateRef.current;
             const playerStats = getCharStats(playerCharId);
-            const keys = playerControlRef.current;
-            if (joystickRef.current.active) {
-                const dx = joystickRef.current.currentX - joystickRef.current.centerX;
-                const dy = joystickRef.current.currentY - joystickRef.current.centerY;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                const speed = (dist / joystickRef.current.radius) * SLIME_SPEED * playerStats.speed;
-                state.rightSlime.vx = (dx / dist) * speed || 0;
-            } else {
-                if (keys.left) state.rightSlime.vx = -SLIME_SPEED * playerStats.speed;
-                else if (keys.right) state.rightSlime.vx = SLIME_SPEED * playerStats.speed;
-                else state.rightSlime.vx = 0;
-            }
+            state.rightSlime.vx = playerControlRef.current.vx;
             // ジャンプ判定
             const rightSlimeRadius = getSlimeRadius(playerCharId);
-            if (keys.jump && state.rightSlime.y + rightSlimeRadius >= groundY - 1) {
+            if (playerControlRef.current.jump && state.rightSlime.y + rightSlimeRadius >= groundY - 1) {
                 state.rightSlime.vy = SLIME_JUMP_POWER * playerStats.jump;
-                keys.jump = false;
+                playerControlRef.current.jump = false;
             }
+            updateAI(currentTime);
             // ... (残りの物理処理は変更なし)
         }, [playerCharId, aiCharId, updateAI]);
 
         // draw: ジョイスティック描画追加
         const draw = useCallback(() => {
-            // ... (既存の描画)
-            const ctx = canvasRef.current.getContext('2d');
+            const canvas = canvasRef.current;
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            // ... (既存の描画: フィールド、スライム、ボール)
             if (joystickRef.current.active) {
                 // 外円
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
@@ -555,13 +549,12 @@
                 ctx.arc(joystickRef.current.currentX, joystickRef.current.currentY, 20, 0, 2 * Math.PI);
                 ctx.fill();
             }
-            // ... (スライム/ボール描画)
         }, [playerCharId, aiCharId]);
 
-        // ... (残りのコードは変更なし)
+        // ... (残りのコードは変更なし: gameLoop, formatTime, JSX)
 
         return (
-            // ... (JSXは変更なし、コントロールボタンなし)
+            // ... (JSXは変更なし)
         );
     };
     
