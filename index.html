@@ -430,6 +430,7 @@
             const canvasRef = useRef(null);
             const animationRef = useRef(null);
             const lastFrameTimeRef = useRef(0);
+            const backgroundImageRef = useRef(null);
             
             // Game state
             const [gameMode, setGameMode] = useState(null);
@@ -448,7 +449,7 @@
             
             // BGMと効果音の管理
             const audioManagerRef = useRef(null);
-            const [musicEnabled, setMusicEnabled] = useState(false);
+            const [musicEnabled, setMusicEnabled] = useState(true);
             const [bgmVolume, setBgmVolume] = useState(0.6);
             const [sfxVolume, setSfxVolume] = useState(0.8);
             
@@ -897,6 +898,21 @@
                 }
             }, [playerCharId, aiCharId, updateAI]);
             
+            useEffect(() => {
+                if (backgroundImage) {
+                    const img = new Image();
+                    img.src = backgroundImage;
+                    img.onload = () => {
+                        backgroundImageRef.current = img;
+                        if (gameStarted) draw();
+                    };
+                    img.onerror = () => {
+                        console.log('Background image load error:', backgroundImage);
+                        backgroundImageRef.current = null;
+                    };
+                }
+            }, [backgroundImage, gameStarted, draw]);
+            
             // draw: 背景画像付きの描画
             const draw = useCallback(() => {
                 const canvas = canvasRef.current;
@@ -905,21 +921,9 @@
                 const state = gameStateRef.current;
                 
                 // 背景画像を描画（あれば）
-                if (backgroundImage) {
-                    const bgImg = new window.Image();
-                    bgImg.src = backgroundImage;
-                    if (bgImg.complete && bgImg.naturalWidth > 0) {
-                        // 背景画像をキャンバス全体に拡大して描画
-                        ctx.drawImage(bgImg, 0, 0, GAME_WIDTH, GAME_HEIGHT);
-                    } else {
-                        // 画像が読み込まれていない場合は従来の青背景
-                        ctx.fillStyle = '#0066ff';
-                        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-                        // 画像読み込み完了時に再描画
-                        if (!bgImg.complete) {
-                            bgImg.onload = () => draw();
-                        }
-                    }
+                const bgImg = backgroundImageRef.current;
+                if (bgImg) {
+                    ctx.drawImage(bgImg, 0, 0, GAME_WIDTH, GAME_HEIGHT);
                 } else {
                     // 背景画像がない場合は従来の青背景
                     ctx.fillStyle = '#0066ff';
@@ -1125,7 +1129,9 @@
                 step === 0 && React.createElement('div', {className: "menu-container"}, [
                     React.createElement('h1', null, "じゃがりんスライムサッカー"),
                     React.createElement('h2', null, "キャラクターを選んでください"),
-                    React.createElement('div', {style: {marginBottom: '20px', textAlign: 'center'}}, [
+                    
+                    /* 音楽ON/OFFボタンと音量調整 */
+                    React.createElement('div', {style: { marginBottom: '20px', textAlign: 'center' }}, [
                         React.createElement('button', {
                             className: "menu-btn",
                             style: { 
@@ -1136,6 +1142,8 @@
                             },
                             onClick: toggleMusic
                         }, `🎵 音楽: ${musicEnabled ? 'ON' : 'OFF'}`),
+                        
+                        /* BGM変更ボタン */
                         musicEnabled && audioManagerRef.current && React.createElement('button', {
                             className: "menu-btn",
                             style: { 
@@ -1161,8 +1169,9 @@
                                 }
                             }
                         }, "🔄 BGM変更"),
-                        musicEnabled && React.createElement('div', {style: {display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center'}}, [
-                            React.createElement('div', {style: {fontSize: '12px', color: '#ccc'}}, [
+                        
+                        musicEnabled && React.createElement('div', {style: { display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}, [
+                            React.createElement('div', {style: { fontSize: '12px', color: '#ccc' }}, [
                                 `BGM音量: ${Math.round(bgmVolume * 100)}%`,
                                 React.createElement('input', {
                                     type: "range",
@@ -1171,10 +1180,10 @@
                                     step: "0.1",
                                     value: bgmVolume,
                                     onChange: (e) => setBgmVolume(parseFloat(e.target.value)),
-                                    style: {marginLeft: '10px', width: '100px'}
+                                    style: { marginLeft: '10px', width: '100px' }
                                 })
                             ]),
-                            React.createElement('div', {style: {fontSize: '12px', color: '#ccc'}}, [
+                            React.createElement('div', {style: { fontSize: '12px', color: '#ccc' }}, [
                                 `効果音音量: ${Math.round(sfxVolume * 100)}%`,
                                 React.createElement('input', {
                                     type: "range",
@@ -1183,17 +1192,17 @@
                                     step: "0.1",
                                     value: sfxVolume,
                                     onChange: (e) => setSfxVolume(parseFloat(e.target.value)),
-                                    style: {marginLeft: '10px', width: '100px'}
+                                    style: { marginLeft: '10px', width: '100px' }
                                 })
                             ]),
-                            React.createElement('div', {style: {fontSize: '10px', color: '#999', textAlign: 'center', maxWidth: '300px'}}, 
-                                '🎼 BGM楽曲: シングルベル, どき！, はむブル, ぶちあげ, ま、る、ちゃ、ん！, 雨, 我々はHamCup, ARE YOU FUMA, Give & Love, HamCup国歌, Hey yo what\'s up men bro, Tommy\'s soliloquy 86\', おーさーゆ！',
+                            React.createElement('div', {style: { fontSize: '10px', color: '#999', textAlign: 'center', maxWidth: '300px' }}, 
+                                "🎼 BGM楽曲: シングルベル, どき！, はむブル, ぶちあげ, ま、る、ちゃ、ん！, 雨, 我々はHamCup, ARE YOU FUMA, Give & Love, HamCup国歌, Hey yo what's up men bro, Tommy's soliloquy 86', おーさーゆ！",
                                 React.createElement('br'),
-                                '🔊 効果音: シンプルな電子音'
+                                "🔊 効果音: シンプルな電子音"
                             )
                         ])
                     ]),
-                    React.createElement('div', {className: "character-grid-scroll", style: {
+                    React.createElement('div', {className: "character-grid-scroll", style:{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(5, 1fr)',
                         gap: '18px',
@@ -1217,9 +1226,9 @@
                         React.createElement('img', {
                             src: `images/${id}.png`,
                             alt: char.name,
-                            style: {width: 64, height: 64, borderRadius: 8, background: '#fff'}
+                            style: { width: 64, height: 64, borderRadius: 8, background: '#fff' }
                         }),
-                        React.createElement('div', {style: {fontWeight: 'bold', marginTop: 4}}, `${char.emoji} ${char.name}`)
+                        React.createElement('div', {style: { fontWeight: 'bold', marginTop: 4 }}, `${char.emoji} ${char.name}`)
                     ]))),
                     React.createElement('div', {className: "character-select-bottom"}, [
                         selectedCharacter && React.createElement('div', {
@@ -1233,20 +1242,20 @@
                                 boxShadow: '0 2px 8px #0008'
                             }
                         }, [
-                            React.createElement('div', {style: {fontSize: 22, fontWeight: 'bold', marginBottom: 6}}, `${CHARACTER_STATS[selectedCharacter].emoji} ${CHARACTER_STATS[selectedCharacter].name}`),
-                            React.createElement('div', {style: {fontSize: 15, marginBottom: 6}}, [
-                                React.createElement('span', {style: {color: '#FFD700'}}, '特技：'),
+                            React.createElement('div', {style: { fontSize: 22, fontWeight: 'bold', marginBottom: 6 }}, `${CHARACTER_STATS[selectedCharacter].emoji} ${CHARACTER_STATS[selectedCharacter].name}`),
+                            React.createElement('div', {style: { fontSize: 15, marginBottom: 6 }}, [
+                                React.createElement('span', {style: { color: '#FFD700' }}, "特技："),
                                 CHARACTER_STATS[selectedCharacter].specialty
                             ]),
-                            React.createElement('div', {style: {display: 'flex', gap: 12, fontSize: 14, justifyContent: 'center'}}, [
-                                `スピード: ${CHARACTER_STATS[selectedCharacter].speed}`,
-                                `ジャンプ: ${CHARACTER_STATS[selectedCharacter].jump}`,
-                                `サイズ: ${CHARACTER_STATS[selectedCharacter].size}`
+                            React.createElement('div', {style: { display: 'flex', gap: 12, fontSize: 14, justifyContent: 'center' }}, [
+                                React.createElement('span', null, `スピード: ${CHARACTER_STATS[selectedCharacter].speed}`),
+                                React.createElement('span', null, `ジャンプ: ${CHARACTER_STATS[selectedCharacter].jump}`),
+                                React.createElement('span', null, `サイズ: ${CHARACTER_STATS[selectedCharacter].size}`)
                             ])
                         ]),
                         React.createElement('button', {
                             className: "menu-btn",
-                            style: {marginTop: 10, background: selectedCharacter ? '#0066ff' : '#888', cursor: selectedCharacter ? 'pointer' : 'not-allowed'},
+                            style: { marginTop: 10, background: selectedCharacter ? '#0066ff' : '#888', cursor: selectedCharacter ? 'pointer' : 'not-allowed' },
                             disabled: !selectedCharacter,
                             onClick: function() {
                                 if (!selectedCharacter) return;
@@ -1272,8 +1281,8 @@
                             }
                         }, [
                             "かんたん",
-                            React.createElement('br', null),
-                            React.createElement('span', {style: {fontSize: 13, color: '#FFD700'}}, "（反応遅め）")
+                            React.createElement('br'),
+                            React.createElement('span', {style: { fontSize: 13, color: '#FFD700' }}, "（反応遅め）")
                         ]),
                         React.createElement('button', {
                             className: "menu-btn",
@@ -1283,8 +1292,8 @@
                             }
                         }, [
                             "ふつう",
-                            React.createElement('br', null),
-                            React.createElement('span', {style: {fontSize: 13, color: '#00CED1'}}, "（標準）")
+                            React.createElement('br'),
+                            React.createElement('span', {style: { fontSize: 13, color: '#00CED1' }}, "（標準）")
                         ]),
                         React.createElement('button', {
                             className: "menu-btn",
@@ -1294,37 +1303,37 @@
                             }
                         }, [
                             "むずかしい",
-                            React.createElement('br', null),
-                            React.createElement('span', {style: {fontSize: 13, color: '#DC143C'}}, "（即時反応）")
+                            React.createElement('br'),
+                            React.createElement('span', {style: { fontSize: 13, color: '#DC143C' }}, "（即時反応）")
                         ])
                     ]),
                     React.createElement('button', {
                         className: "menu-btn",
-                        style: {marginTop: 20, background: '#666'},
+                        style: { marginTop: 20, background: '#666' },
                         onClick: () => setStep(0)
                     }, "キャラ選択に戻る")
                 ]),
                 step === 2 && React.createElement('div', {className: "menu-container"}, [
                     React.createElement('h2', null, "試合時間を選んでください"),
                     React.createElement('div', {className: "game-info"}, [
-                        React.createElement('span', {style: {color: CHARACTER_STATS[playerCharId]?.color, fontWeight: 'bold'}},
+                        React.createElement('span', {style: { color: CHARACTER_STATS[playerCharId]?.color, fontWeight: 'bold' }},
                             `${CHARACTER_STATS[playerCharId]?.emoji} ${CHARACTER_STATS[playerCharId]?.name}`
                         ),
-                        React.createElement('span', null, " vs "),
-                        React.createElement('span', {style: {color: CHARACTER_STATS[aiCharId]?.color, fontWeight: 'bold'}},
+                        " vs ",
+                        React.createElement('span', {style: { color: CHARACTER_STATS[aiCharId]?.color, fontWeight: 'bold' }},
                             `${CHARACTER_STATS[aiCharId]?.emoji} ${CHARACTER_STATS[aiCharId]?.name}`
                         )
                     ]),
                     React.createElement('div', {className: "menu-buttons"}, [
-                        React.createElement('button', {className: "menu-btn", onClick: function() { setGameMode('1min'); setTimeLeft(60); setStep(3); setGameStarted(true); resetGame(); }}, "1分"),
-                        React.createElement('button', {className: "menu-btn", onClick: function() { setGameMode('2min'); setTimeLeft(120); setStep(3); setGameStarted(true); resetGame(); }}, "2分"),
-                        React.createElement('button', {className: "menu-btn", onClick: function() { setGameMode('4min'); setTimeLeft(240); setStep(3); setGameStarted(true); resetGame(); }}, "4分"),
-                        React.createElement('button', {className: "menu-btn", onClick: function() { setGameMode('8min'); setTimeLeft(480); setStep(3); setGameStarted(true); resetGame(); }}, "8分"),
-                        React.createElement('button', {className: "menu-btn", onClick: function() { setGameMode('worldcup'); setTimeLeft(300); setStep(3); setGameStarted(true); resetGame(); }}, "ワールドカップ")
+                        React.createElement('button', {className: "menu-btn", onClick: () => { setGameMode('1min'); setTimeLeft(60); setStep(3); setGameStarted(true); resetGame(); }}, "1分"),
+                        React.createElement('button', {className: "menu-btn", onClick: () => { setGameMode('2min'); setTimeLeft(120); setStep(3); setGameStarted(true); resetGame(); }}, "2分"),
+                        React.createElement('button', {className: "menu-btn", onClick: () => { setGameMode('4min'); setTimeLeft(240); setStep(3); setGameStarted(true); resetGame(); }}, "4分"),
+                        React.createElement('button', {className: "menu-btn", onClick: () => { setGameMode('8min'); setTimeLeft(480); setStep(3); setGameStarted(true); resetGame(); }}, "8分"),
+                        React.createElement('button', {className: "menu-btn", onClick: () => { setGameMode('worldcup'); setTimeLeft(300); setStep(3); setGameStarted(true); resetGame(); }}, "ワールドカップ")
                     ]),
                     React.createElement('button', {
                         className: "menu-btn",
-                        style: {marginTop: 20, background: '#666'},
+                        style: { marginTop: 20, background: '#666' },
                         onClick: () => setStep(1)
                     }, "難易度選択に戻る")
                 ]),
@@ -1334,15 +1343,19 @@
                         React.createElement('span', null, formatTime(timeLeft)),
                         React.createElement('span', null, `${score.right} : 赤チーム`)
                     ]),
+                    
                     React.createElement('canvas', {
                         ref: canvasRef,
                         width: GAME_WIDTH,
                         height: GAME_HEIGHT
                     }),
-                    winner && React.createElement('div', {className: "menu-container", style: {position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px'}}, [
-                        React.createElement('h2', {style: {fontSize: '2rem', marginBottom: '20px'}}, winner === '引き分け' ? '引き分け！' : `${winner}の勝利！`),
+                    
+                    // ボタンなし、コントロールはスワイプ/タップ専用
+
+                    winner && React.createElement('div', {className: "menu-container", style: { position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px' }}, [
+                        React.createElement('h2', {style: { fontSize: '2rem', marginBottom: '20px' }}, winner === '引き分け' ? '引き分け！' : `${winner}の勝利！`),
                         React.createElement('button', {
-                            onClick: function() {
+                            onClick: () => {
                                 setStep(0);
                                 setGameStarted(false);
                                 setGameMode(null);
