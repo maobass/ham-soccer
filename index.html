@@ -532,7 +532,7 @@
                 };
             }, [gameStarted, playerCharId]);
 
-            // updatePhysics: ジョイスティック入力反映
+            // updatePhysics: ボールが必ず上方向に弾かれるように修正
             const updatePhysics = useCallback((currentTime) => {
                 const state = gameStateRef.current;
                 const playerStats = getCharStats(playerCharId);
@@ -558,15 +558,16 @@
                         slime.vy = 0;
                     }
                 });
-                // ボール物理・当たり判定も半円中心基準
+                // ボール物理
                 if (state.ball.grabbedBy) {
-                    // ...（グラブ機能は削除済みなので省略）...
+                    // グラブ機能は削除済み
                 } else {
                     state.ball.vy += GRAVITY;
                     state.ball.vx *= BALL_DAMPING;
                     state.ball.x += state.ball.vx;
                     state.ball.y += state.ball.vy;
                 }
+                // ボールの壁・天井・地面反発
                 if (state.ball.x < BALL_RADIUS) {
                     state.ball.x = BALL_RADIUS;
                     state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
@@ -583,6 +584,7 @@
                     state.ball.y = BALL_RADIUS;
                     state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
                 }
+                // ボールとスライムの当たり判定 - 必ず上方向に弾かれるように修正
                 [state.leftSlime, state.rightSlime].forEach((slime, idx) => {
                     const charId = idx === 0 ? aiCharId : playerCharId;
                     const slimeRadius = getSlimeRadius(charId);
@@ -592,15 +594,49 @@
                     const dx = state.ball.x - slimeCx;
                     const dy = state.ball.y - slimeCy;
                     const distance = Math.sqrt(dx * dx + dy * dy);
+                    
                     if (distance < slimeRadius + BALL_RADIUS) {
-                        const angle = Math.atan2(dy, dx);
+                        // 当たった時の角度を計算
+                        let angle = Math.atan2(dy, dx);
+                        
+                        // 角度を上方向（-π/2 ～ π/2の範囲）に制限
+                        // ボールが下方向に飛ばないようにする
+                        if (angle > Math.PI / 2) {
+                            // 右下方向の場合は右上方向に修正
+                            angle = Math.PI / 4; // 45度右上
+                        } else if (angle < -Math.PI / 2) {
+                            // 左下方向の場合は左上方向に修正
+                            angle = -Math.PI / 4; // 45度左上
+                        }
+                        
+                        // さらに上方向バイアスを追加（最低でも30度以上の上向き角度を保証）
+                        const minUpwardAngle = Math.PI / 6; // 30度
+                        if (angle > 0 && angle < minUpwardAngle) {
+                            angle = minUpwardAngle;
+                        } else if (angle < 0 && angle > -minUpwardAngle) {
+                            angle = -minUpwardAngle;
+                        }
+                        
+                        // ボールの新しい位置を設定
                         const targetX = slimeCx + Math.cos(angle) * (slimeRadius + BALL_RADIUS);
                         const targetY = slimeCy + Math.sin(angle) * (slimeRadius + BALL_RADIUS);
                         state.ball.x = targetX;
                         state.ball.y = targetY;
-                        const speed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
-                        state.ball.vx = Math.cos(angle) * speed * 1.5 + slime.vx * 0.5;
-                        state.ball.vy = Math.sin(angle) * speed * 1.5 + slime.vy * 0.5;
+                        
+                        // 現在のボールの速度を取得
+                        const currentSpeed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
+                        const baseSpeed = Math.max(currentSpeed, 8); // 最低速度を保証
+                        
+                        // 新しい速度を設定（必ず上方向成分を含む）
+                        state.ball.vx = Math.cos(angle) * baseSpeed * 1.2 + slime.vx * 0.3;
+                        state.ball.vy = Math.sin(angle) * baseSpeed * 1.2 + slime.vy * 0.3;
+                        
+                        // 上方向の速度が不足している場合は補正
+                        if (state.ball.vy > -3) {
+                            state.ball.vy = -Math.max(6, Math.abs(state.ball.vy) + 3);
+                        }
+                        
+                        // 最大速度制限
                         const newSpeed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
                         if (newSpeed > MAX_BALL_SPEED) {
                             const scale = MAX_BALL_SPEED / newSpeed;
@@ -609,6 +645,7 @@
                         }
                     }
                 });
+                
                 // Goal detection
                 if (state.ball.x <= BALL_RADIUS && state.ball.y > groundY - GOAL_HEIGHT) {
                     setScore(prev => ({ ...prev, right: prev.right + 1 }));
