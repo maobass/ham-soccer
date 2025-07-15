@@ -72,6 +72,14 @@
             border: 2px solid #0066ff;
         }
     
+        .character-card img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            margin: 0 auto;
+            display: block;
+        }
+    
         .character-select-bottom {
             width: 100%;
             display: flex;
@@ -745,7 +753,7 @@
                                         className={`character-card ${selectedCharacter === id ? 'selected' : ''}`}
                                         onClick={() => setSelectedCharacter(id)}
                                     >
-                                        <div style={{ background: stats.color, width: '50px', height: '50px', margin: '0 auto', borderRadius: '50%' }}></div>
+                                        <img src={`images/${id}.png`} alt={stats.name} />
                                         <p>{stats.name}</p>
                                         <p>速度: {stats.speed}</p>
                                         <p>ジャンプ: {stats.jump}</p>
