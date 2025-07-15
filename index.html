@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Slime Soccer Mobile</title>
+    <title>じゃがりんスライムサッカー</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/6.26.0/babel.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -425,7 +425,7 @@
             // プレイヤー操作状態
             const playerControlRef = useRef({ left: false, right: false, jump: false });
             // スワイプ操作用 state
-            const swipeRef = useRef({ startX: 0, startY: 0, active: false });
+            const swipeRef = useRef({ startX: 0, startY: 0, startTime: 0, active: false });
             // キーイベント
             useEffect(() => {
                 const down = (e) => {
@@ -446,62 +446,52 @@
                     window.removeEventListener('keyup', up);
                 };
             }, []);
-            // タッチ/マウスボタン
-            const handleTouchStart = (control) => { playerControlRef.current[control] = true; };
-            const handleTouchEnd = (control) => { playerControlRef.current[control] = false; };
 
-            // --- スワイプ操作イベント ---
+            // --- スワイプ/タップ操作イベント ---
             useEffect(() => {
                 const canvas = canvasRef.current;
                 if (!canvas) return;
-                // スワイプ開始
+                // タッチ開始
                 const handleTouchStart = (e) => {
                     if (e.touches.length !== 1) return;
                     const touch = e.touches[0];
                     swipeRef.current.startX = touch.clientX;
                     swipeRef.current.startY = touch.clientY;
+                    swipeRef.current.startTime = Date.now();
                     swipeRef.current.active = true;
                     e.preventDefault();
                 };
-                // スワイプ終了
+                // タッチ終了（タップ/スワイプ判定）
                 const handleTouchEnd = (e) => {
                     if (!swipeRef.current.active) return;
+                    const duration = Date.now() - swipeRef.current.startTime;
                     const touch = (e.changedTouches && e.changedTouches[0]) || null;
                     if (!touch) return;
                     const dx = touch.clientX - swipeRef.current.startX;
                     const dy = touch.clientY - swipeRef.current.startY;
                     const absDx = Math.abs(dx);
                     const absDy = Math.abs(dy);
-                    const threshold = 20; // px
-                    if (absDx < threshold && absDy < threshold) {
-                        swipeRef.current.active = false;
-                        return;
-                    }
-                    // 方向判定（全方向）
-                    if (absDx > absDy) {
-                        // 横方向優先
-                        if (dx > 0) {
-                            // 右スワイプ
-                            playerControlRef.current.left = false;
-                            playerControlRef.current.right = true;
-                        } else {
-                            // 左スワイプ
-                            playerControlRef.current.right = false;
-                            playerControlRef.current.left = true;
-                        }
+                    const swipeThreshold = 20; // px for swipe detection
+                    const tapThreshold = 200; // ms for tap detection
+                    if (duration < tapThreshold && absDx < swipeThreshold && absDy < swipeThreshold) {
+                        // Tap detected: Jump
+                        playerControlRef.current.jump = true;
                     } else {
-                        // 縦方向優先
-                        if (dy < 0) {
-                            // 上スワイプ
-                            playerControlRef.current.jump = true;
-                        } else {
-                            // 下スワイプ（未実装: 必要なら追加）
+                        // Swipe detected: Movement
+                        if (absDx > absDy) {
+                            if (dx > 0) {
+                                playerControlRef.current.left = false;
+                                playerControlRef.current.right = true;
+                            } else {
+                                playerControlRef.current.right = false;
+                                playerControlRef.current.left = true;
+                            }
                         }
                     }
                     swipeRef.current.active = false;
                     e.preventDefault();
                 };
-                // スワイプ移動中（連続制御）
+                // タッチ移動中（スワイプ継続制御）
                 const handleTouchMove = (e) => {
                     if (e.touches.length !== 1 || !swipeRef.current.active) return;
                     const touch = e.touches[0];
@@ -517,14 +507,6 @@
                         } else {
                             playerControlRef.current.right = false;
                             playerControlRef.current.left = true;
-                        }
-                    } else {
-                        playerControlRef.current.left = false;
-                        playerControlRef.current.right = false;
-                        if (dy < 0) {
-                            playerControlRef.current.jump = true;
-                        } else {
-                            playerControlRef.current.jump = false;
                         }
                     }
                     e.preventDefault();
@@ -756,7 +738,7 @@
                     {/* キャラクター選択画面 */}
                     {step === 0 && (
                         <div className="menu-container">
-                            <h1>スライムサッカー（AI対戦専用）</h1>
+                            <h1>じゃがりんスライムサッカー</h1>
                             <h2>キャラクターを選んでください</h2>
                             <div className="character-grid-scroll" style={{
                                 display: 'grid',
@@ -920,7 +902,7 @@
                                 height={GAME_HEIGHT}
                             />
                             
-                            {/* スワイプ操作のため、コントロールボタンは廃止 */}
+                            {/* ボタンなし、コントロールはスワイプ/タップ専用 */}
 
                             {winner && (
                                 <div className="menu-container" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px' }}>
