@@ -1,4 +1,8 @@
-<!doctype html>
+const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };<!doctype html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -235,6 +239,113 @@
         const BALL_BOUNCE_DAMPING = 0.8;
         const MAX_BALL_SPEED = 13;
         
+        // BGM用Audio要素の管理
+        const createAudioManager = () => {
+            const bgmAudio = new Audio();
+            
+            // BGMファイルのパス（全てあなたの楽曲）
+            const bgmFiles = [
+                'musics/シングルベル (Remastered).mp3',
+                'musics/どき！.mp3',
+                'musics/はむブル.mp3',
+                'musics/ぶちあげ.mp3',
+                'musics/ま、る、ちゃ、ん！.mp3',
+                'musics/雨.mp3',
+                'musics/我々はHamCup.mp3',
+                'musics/ARE YOU FUMA.mp3',
+                'musics/Give &  Love.mp3',
+                'musics/HamCup国歌.mp3',
+                'musics/Hey, yo, what\'s up men_ bro..mp3',
+                'musics/Tommy\'s soliloquy 86\'.mp3',
+                'musics/おーさーゆ！.mp3'
+            ];
+            
+            // ランダムにBGMを選択
+            const randomBGM = bgmFiles[Math.floor(Math.random() * bgmFiles.length)];
+            bgmAudio.src = randomBGM;
+            bgmAudio.loop = true;
+            bgmAudio.volume = 0.6; // 音量調整（0.0-1.0）
+            
+            // 効果音用のWeb Audio API（シンプルな電子音）
+            let audioContext = null;
+            const createAudioContext = () => {
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                return audioContext;
+            };
+            
+            const playBeep = (frequency, duration, volume = 0.3) => {
+                try {
+                    const ctx = createAudioContext();
+                    const oscillator = ctx.createOscillator();
+                    const gainNode = ctx.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+                    
+                    oscillator.frequency.value = frequency;
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0, ctx.currentTime);
+                    gainNode.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.01);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + duration);
+                    
+                    oscillator.start(ctx.currentTime);
+                    oscillator.stop(ctx.currentTime + duration);
+                } catch (error) {
+                    console.log('効果音エラー:', error);
+                }
+            };
+            
+            return {
+                bgm: bgmAudio,
+                currentBGM: randomBGM, // 現在のBGM名を保存
+                bgmFiles: bgmFiles, // BGMファイルリストを保存
+                playBGM: async () => {
+                    try {
+                        bgmAudio.currentTime = 0;
+                        await bgmAudio.play();
+                        console.log('BGM開始:', randomBGM);
+                    } catch (error) {
+                        console.log('BGM再生エラー:', error);
+                    }
+                },
+                stopBGM: () => {
+                    bgmAudio.pause();
+                    bgmAudio.currentTime = 0;
+                },
+                playKick: () => {
+                    // キック音：短い低音
+                    playBeep(200, 0.1, 0.3);
+                },
+                playGoal: () => {
+                    // ゴール音：華やかな上昇音
+                    playBeep(400, 0.2, 0.4);
+                    setTimeout(() => playBeep(500, 0.2, 0.4), 100);
+                    setTimeout(() => playBeep(600, 0.3, 0.4), 200);
+                },
+                setBGMVolume: (volume) => {
+                    bgmAudio.volume = Math.max(0, Math.min(1, volume));
+                },
+                setSFXVolume: (volume) => {
+                    // 効果音音量は内部で管理（Web Audio APIの音量調整）
+                    // 実際の音量調整は playBeep 関数内で使用
+                    window.sfxVolume = Math.max(0, Math.min(1, volume));
+                },
+                // 新しいBGMに変更する関数
+                changeBGM: () => {
+                    const newBGM = bgmFiles[Math.floor(Math.random() * bgmFiles.length)];
+                    bgmAudio.src = newBGM;
+                    return newBGM;
+                },
+                // BGM名を取得する関数
+                getCurrentBGMName: () => {
+                    const fileName = bgmAudio.src.split('/').pop();
+                    return fileName ? decodeURIComponent(fileName.replace('.mp3', '')) : 'Unknown';
+                }
+            };
+        };
         /**
          * キャラクター情報（画像ファイル名は images/001.png ～ images/029.png）
          */
@@ -289,6 +400,19 @@
                 'images/h5.jpg', 'images/h6.png', 'images/h7.png', 'images/h8.png',
                 'images/h9.png', 'images/h10.png', 'images/h11.png', 'images/h12.png', 'images/h13.png'
             ];
+            
+            // BGMと効果音の管理
+            const audioManagerRef = useRef(null);
+            const [musicEnabled, setMusicEnabled] = useState(false);
+            const [bgmVolume, setBgmVolume] = useState(0.6);
+            const [sfxVolume, setSfxVolume] = useState(0.8);
+            
+            // 音楽の初期化
+            useEffect(() => {
+                if (!audioManagerRef.current) {
+                    audioManagerRef.current = createAudioManager();
+                }
+            }, []);
             
             // Game objects state
             const gameStateRef = useRef({
@@ -349,7 +473,10 @@
                                 setGameStarted(false);
                                 determineWinner();
                                 return 0;
-                            }
+                            // ボールとキャラクターの接触時に効果音（シンプルな電子音）
+                        if (musicEnabled && audioManagerRef.current && window.sfxVolume > 0) {
+                            audioManagerRef.current.playKick();
+                        }
                             return prev - 1;
                         });
                     }, 1000);
@@ -405,6 +532,11 @@
                 // ゲーム開始時に背景をランダム選択
                 const randomIndex = Math.floor(Math.random() * backgroundImages.length);
                 setBackgroundImage(backgroundImages[randomIndex]);
+                
+                // BGM開始
+                if (musicEnabled && audioManagerRef.current) {
+                    audioManagerRef.current.playBGM();
+                }
             };
             
             // ゲーム本体のキャラ能力・AI難易度反映用ヘルパー
@@ -699,9 +831,17 @@
                 // Goal detection
                 if (state.ball.x <= BALL_RADIUS && state.ball.y > groundY - GOAL_HEIGHT) {
                     setScore(prev => ({ ...prev, right: prev.right + 1 }));
+                    // ゴール効果音（シンプルな電子音）
+                    if (musicEnabled && audioManagerRef.current && window.sfxVolume > 0) {
+                        audioManagerRef.current.playGoal();
+                    }
                     resetPositions();
                 } else if (state.ball.x >= GAME_WIDTH - BALL_RADIUS && state.ball.y > groundY - GOAL_HEIGHT) {
                     setScore(prev => ({ ...prev, left: prev.left + 1 }));
+                    // ゴール効果音（シンプルな電子音）
+                    if (musicEnabled && audioManagerRef.current && window.sfxVolume > 0) {
+                        audioManagerRef.current.playGoal();
+                    }
                     resetPositions();
                 }
                 // Ceiling collision
@@ -876,11 +1016,34 @@
                 };
             }, [gameStarted, gameLoop]);
             
-            const formatTime = (seconds) => {
-                const mins = Math.floor(seconds / 60);
-                const secs = seconds % 60;
-                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            // ゲーム終了時にBGM停止
+            useEffect(() => {
+                if (!gameStarted && audioManagerRef.current) {
+                    audioManagerRef.current.stopBGM();
+                }
+            }, [gameStarted]);
+            
+            // 音楽ON/OFF切り替え
+            const toggleMusic = () => {
+                setMusicEnabled(!musicEnabled);
+                if (!musicEnabled && gameStarted && audioManagerRef.current) {
+                    // 音楽をONにしてゲーム中の場合はBGM開始
+                    audioManagerRef.current.playBGM();
+                } else if (musicEnabled && audioManagerRef.current) {
+                    // 音楽をOFFにする場合はBGM停止
+                    audioManagerRef.current.stopBGM();
+                }
             };
+            
+            // 音量調整
+            useEffect(() => {
+                if (audioManagerRef.current) {
+                    audioManagerRef.current.setBGMVolume(bgmVolume);
+                    audioManagerRef.current.setSFXVolume(sfxVolume);
+                }
+                // グローバルに効果音音量を保存
+                window.sfxVolume = sfxVolume;
+            }, [bgmVolume, sfxVolume]);
 
             // 全画面表示をトリガーする関数 (機種ごと柔軟対応)
             const enterFullscreen = () => {
@@ -914,6 +1077,80 @@
                         <div className="menu-container">
                             <h1>じゃがりんスライムサッカー</h1>
                             <h2>キャラクターを選んでください</h2>
+                            
+                            {/* 音楽ON/OFFボタンと音量調整 */}
+                            <div style={{ marginBottom: '20px', textAlign: 'center' }}>
+                                <button
+                                    className="menu-btn"
+                                    style={{ 
+                                        background: musicEnabled ? '#32CD32' : '#666',
+                                        fontSize: '14px',
+                                        padding: '8px 16px',
+                                        marginBottom: '10px'
+                                    }}
+                                    onClick={toggleMusic}
+                                >
+                                    🎵 音楽: {musicEnabled ? 'ON' : 'OFF'}
+                                </button>
+                                
+                                {/* BGM変更ボタン */}
+                                {musicEnabled && audioManagerRef.current && (
+                                    <button
+                                        className="menu-btn"
+                                        style={{ 
+                                            background: '#FF6347',
+                                            fontSize: '12px',
+                                            padding: '6px 12px',
+                                            marginBottom: '10px',
+                                            marginLeft: '10px'
+                                        }}
+                                        onClick={() => {
+                                            if (audioManagerRef.current) {
+                                                const newBGM = audioManagerRef.current.changeBGM();
+                                                console.log('BGM変更:', newBGM);
+                                                if (gameStarted) {
+                                                    audioManagerRef.current.playBGM();
+                                                }
+                                            }
+                                        }}
+                                    >
+                                        🔄 BGM変更
+                                    </button>
+                                )}
+                                
+                                {musicEnabled && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center' }}>
+                                        <div style={{ fontSize: '12px', color: '#ccc' }}>
+                                            BGM音量: {Math.round(bgmVolume * 100)}%
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="1"
+                                                step="0.1"
+                                                value={bgmVolume}
+                                                onChange={(e) => setBgmVolume(parseFloat(e.target.value))}
+                                                style={{ marginLeft: '10px', width: '100px' }}
+                                            />
+                                        </div>
+                                        <div style={{ fontSize: '12px', color: '#ccc' }}>
+                                            効果音音量: {Math.round(sfxVolume * 100)}%
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="1"
+                                                step="0.1"
+                                                value={sfxVolume}
+                                                onChange={(e) => setSfxVolume(parseFloat(e.target.value))}
+                                                style={{ marginLeft: '10px', width: '100px' }}
+                                            />
+                                        </div>
+                                        <div style={{ fontSize: '10px', color: '#999', textAlign: 'center', maxWidth: '300px' }}>
+                                            🎼 BGM楽曲: シングルベル, どき！, はむブル, ぶちあげ, ま、る、ちゃ、ん！, 雨, 我々はHamCup, ARE YOU FUMA, Give & Love, HamCup国歌, Hey yo what's up men bro, Tommy's soliloquy 86', おーさーゆ！<br/>
+                                            🔊 効果音: シンプルな電子音
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                             <div className="character-grid-scroll" style={{
                                 display: 'grid',
                                 gridTemplateColumns: 'repeat(5, 1fr)',
