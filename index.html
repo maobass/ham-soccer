@@ -282,6 +282,14 @@
             const [gameStarted, setGameStarted] = useState(false);
             const [winner, setWinner] = useState(null);
             
+            // 背景画像の状態を追加
+            const [backgroundImage, setBackgroundImage] = useState(null);
+            const backgroundImages = [
+                'images/h1.png', 'images/h2.png', 'images/h3.png', 'images/h4.png', 
+                'images/h5.jpg', 'images/h6.png', 'images/h7.png', 'images/h8.png',
+                'images/h9.png', 'images/h10.png', 'images/h11.png', 'images/h12.png', 'images/h13.png'
+            ];
+            
             // Game objects state
             const gameStateRef = useRef({
                 leftSlime: {
@@ -394,6 +402,9 @@
                 resetPositions();
                 setScore({ left: 0, right: 0 });
                 setWinner(null);
+                // ゲーム開始時に背景をランダム選択
+                const randomIndex = Math.floor(Math.random() * backgroundImages.length);
+                setBackgroundImage(backgroundImages[randomIndex]);
             };
             
             // ゲーム本体のキャラ能力・AI難易度反映用ヘルパー
@@ -700,20 +711,43 @@
                 }
             }, [playerCharId, aiCharId, updateAI]);
             
-            // draw: 描画・当たり判定も足元基準
+            // draw: 背景画像付きの描画
             const draw = useCallback(() => {
                 const canvas = canvasRef.current;
                 if (!canvas) return;
                 const ctx = canvas.getContext('2d');
                 const state = gameStateRef.current;
-                ctx.fillStyle = '#0000FF';
-                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-                ctx.fillStyle = '#808080';
+                
+                // 背景画像を描画（あれば）
+                if (backgroundImage) {
+                    const bgImg = new window.Image();
+                    bgImg.src = backgroundImage;
+                    if (bgImg.complete && bgImg.naturalWidth > 0) {
+                        // 背景画像をキャンバス全体に拡大して描画
+                        ctx.drawImage(bgImg, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+                    } else {
+                        // 画像が読み込まれていない場合は従来の青背景
+                        ctx.fillStyle = '#0066ff';
+                        ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+                        // 画像読み込み完了時に再描画
+                        if (!bgImg.complete) {
+                            bgImg.onload = () => draw();
+                        }
+                    }
+                } else {
+                    // 背景画像がない場合は従来の青背景
+                    ctx.fillStyle = '#0066ff';
+                    ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+                }
+                
+                // 地面（背景の上に半透明で描画）
+                ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
                 ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
+                
                 // --- ゴールエリア色分け ---
                 ctx.save();
                 // 左ゴール（青）
-                ctx.globalAlpha = 0.25;
+                ctx.globalAlpha = 0.4;
                 ctx.fillStyle = '#00BFFF';
                 ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
                 // 右ゴール（赤）
@@ -721,6 +755,7 @@
                 ctx.fillRect(GAME_WIDTH - GOAL_WIDTH, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
                 ctx.globalAlpha = 1.0;
                 ctx.restore();
+                
                 // --- 既存のゴール枠線 ---
                 ctx.strokeStyle = '#FFFFFF';
                 ctx.lineWidth = 3;
@@ -738,6 +773,7 @@
                 ctx.moveTo(GAME_WIDTH - GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT);
                 ctx.lineTo(GAME_WIDTH - GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT);
                 ctx.stroke();
+                
                 // スライム描画
                 const drawSlime = (slime, charId, isAI) => {
                     const stats = getCharStats(charId);
@@ -774,16 +810,31 @@
                     // --- キャラ名・emojiも画像の上に連動 ---
                     ctx.font = 'bold 16px Arial';
                     ctx.textAlign = 'center';
+                    // 背景画像がある場合は文字を見やすくするため影付き
+                    if (backgroundImage) {
+                        ctx.strokeStyle = '#000';
+                        ctx.lineWidth = 3;
+                        ctx.strokeText(`${stats.emoji} ${stats.name}`, slime.x, imageY - 10);
+                    }
                     ctx.fillStyle = isAI ? '#FFD700' : '#fff';
                     ctx.fillText(`${stats.emoji} ${stats.name}`, slime.x, imageY - 10);
                 };
                 drawSlime(state.leftSlime, aiCharId, true);
                 drawSlime(state.rightSlime, playerCharId, false);
-                // ボール
+                
+                // ボール（背景画像がある場合は影付き）
+                if (backgroundImage) {
+                    // ボールの影
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.beginPath();
+                    ctx.arc(state.ball.x + 2, state.ball.y + 2, BALL_RADIUS, 0, Math.PI * 2);
+                    ctx.fill();
+                }
                 ctx.fillStyle = '#FFD700';
                 ctx.beginPath();
                 ctx.arc(state.ball.x, state.ball.y, BALL_RADIUS, 0, Math.PI * 2);
                 ctx.fill();
+                
                 // ジョイスティック描画
                 if (joystickRef.current.active) {
                     // 外円
@@ -798,7 +849,7 @@
                     ctx.arc(joystickRef.current.currentX, joystickRef.current.currentY, 20, 0, 2 * Math.PI);
                     ctx.fill();
                 }
-            }, [playerCharId, aiCharId]);
+            }, [playerCharId, aiCharId, backgroundImage]);
             
             // ゲームループでupdatePhysics, drawにcurrentTimeを渡す
             const gameLoop = useCallback((currentTime) => {
