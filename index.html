@@ -584,7 +584,7 @@
                     state.ball.y = BALL_RADIUS;
                     state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
                 }
-                // ボールとスライムの当たり判定 - 必ず上方向に弾かれるように修正
+                // ボールとスライムの当たり判定 - より自然な反発に修正
                 [state.leftSlime, state.rightSlime].forEach((slime, idx) => {
                     const charId = idx === 0 ? aiCharId : playerCharId;
                     const slimeRadius = getSlimeRadius(charId);
@@ -596,25 +596,21 @@
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
                     if (distance < slimeRadius + BALL_RADIUS) {
-                        // 当たった時の角度を計算
+                        // 自然な反発角度を計算
                         let angle = Math.atan2(dy, dx);
                         
-                        // 角度を上方向（-π/2 ～ π/2の範囲）に制限
-                        // ボールが下方向に飛ばないようにする
-                        if (angle > Math.PI / 2) {
-                            // 右下方向の場合は右上方向に修正
-                            angle = Math.PI / 4; // 45度右上
-                        } else if (angle < -Math.PI / 2) {
-                            // 左下方向の場合は左上方向に修正
-                            angle = -Math.PI / 4; // 45度左上
-                        }
+                        // スライムの下半分（地面近く）に当たった場合のみ上方向に補正
+                        // これにより地面での転がりを防ぎつつ、自然な反発を保つ
+                        const slimeGroundY = slime.y + slimeRadius; // スライムの底部
+                        const ballRelativeY = state.ball.y - slimeGroundY;
                         
-                        // さらに上方向バイアスを追加（最低でも30度以上の上向き角度を保証）
-                        const minUpwardAngle = Math.PI / 6; // 30度
-                        if (angle > 0 && angle < minUpwardAngle) {
-                            angle = minUpwardAngle;
-                        } else if (angle < 0 && angle > -minUpwardAngle) {
-                            angle = -minUpwardAngle;
+                        if (ballRelativeY > -slimeRadius * 0.3) {
+                            // ボールがスライムの下部30%に当たった場合、軽く上向きに補正
+                            if (angle > Math.PI * 0.4) {
+                                angle = Math.PI * 0.4; // 72度（やや上向き）
+                            } else if (angle < -Math.PI * 0.4) {
+                                angle = -Math.PI * 0.4; // -72度（やや上向き）
+                            }
                         }
                         
                         // ボールの新しい位置を設定
@@ -623,17 +619,18 @@
                         state.ball.x = targetX;
                         state.ball.y = targetY;
                         
-                        // 現在のボールの速度を取得
+                        // より自然な速度計算
                         const currentSpeed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
-                        const baseSpeed = Math.max(currentSpeed, 8); // 最低速度を保証
+                        const baseSpeed = Math.max(currentSpeed * 0.8, 6); // 現在速度の80%、最低6
                         
-                        // 新しい速度を設定（必ず上方向成分を含む）
-                        state.ball.vx = Math.cos(angle) * baseSpeed * 1.2 + slime.vx * 0.3;
-                        state.ball.vy = Math.sin(angle) * baseSpeed * 1.2 + slime.vy * 0.3;
+                        // 反発力を反射角度に基づいて計算
+                        const reflectionPower = 1.3;
+                        state.ball.vx = Math.cos(angle) * baseSpeed * reflectionPower + slime.vx * 0.4;
+                        state.ball.vy = Math.sin(angle) * baseSpeed * reflectionPower + slime.vy * 0.4;
                         
-                        // 上方向の速度が不足している場合は補正
-                        if (state.ball.vy > -3) {
-                            state.ball.vy = -Math.max(6, Math.abs(state.ball.vy) + 3);
+                        // 地面近くでの当たりの場合のみ、わずかに上向き成分を追加
+                        if (ballRelativeY > -slimeRadius * 0.2 && state.ball.vy > -2) {
+                            state.ball.vy -= 3; // 軽く上向きの力を追加
                         }
                         
                         // 最大速度制限
