@@ -20,189 +20,209 @@
             user-select: none;
         }
         
-    body {
-        font-family: 'Arial', sans-serif;
-        background: #1a1a2e;
-        color: white;
-        min-height: 100vh;
-        touch-action: auto; /* デフォルトでメニュー時は許可 */
-        overflow-y: auto; /* デフォルトでメニュー時は許可 */
-    }
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #1a1a2e;
+            color: white;
+            min-height: 100vh;
+            touch-action: auto; /* デフォルトでメニュー時は許可 */
+            overflow-y: auto; /* デフォルトでメニュー時は許可 */
+        }
+        
+        #root {
+            width: 100vw;
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+        
+        .game-container {
+            width: 100vw;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+        .character-grid-scroll {
+            max-height: 60vh;
+            overflow-y: auto;
+            margin: 30px auto 0 auto;
+            width: 100%;
+        }
     
-    #root {
-        width: 100vw;
-        min-height: 100vh;
-        display: flex;
-        align-items: flex-start;
-        justify-content: center;
-    }
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            padding: 10px;
+        }
     
-    .game-container {
-        width: 100vw;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-    }
+        .character-card {
+            background: #333;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+        }
     
-    .character-grid-scroll {
-        max-height: 60vh;
-        overflow-y: auto;
-        margin: 30px auto 0 auto;
-        width: 100%;
-    }
-
-    .character-select-bottom {
-        width: 100%;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        position: sticky;
-        bottom: 0;
-        background: #1a1a2e;
-        padding-bottom: 24px;
-        z-index: 10;
-    }
-
-    canvas {
-        width: 100vw !important;
-        height: 60vh !important;
-        max-width: 100vw;
-        max-height: 100vh;
-        border: 2px solid #333;
-        background: #0066ff;
-        touch-action: none;
-        display: block;
-    }
+        .character-card.selected {
+            border: 2px solid #0066ff;
+        }
     
-    .controls {
-        position: fixed;
-        bottom: 20px;
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        padding: 0 20px;
-        z-index: 1000;
-    }
+        .character-select-bottom {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: sticky;
+            bottom: 0;
+            background: #1a1a2e;
+            padding-bottom: 24px;
+            z-index: 10;
+        }
     
-    .control-group {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    
-    .control-btn {
-        width: 60px;
-        height: 60px;
-        border-radius: 50%;
-        border: 3px solid #fff;
-        background: rgba(0, 102, 255, 0.8);
-        color: white;
-        font-size: 18px;
-        font-weight: bold;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        touch-action: manipulation;
-        user-select: none;
-    }
-    
-    .control-btn:active {
-        background: rgba(0, 102, 255, 1);
-        transform: scale(0.95);
-    }
-    
-    .direction-controls {
-        display: flex;
-        gap: 10px;
-    }
-    
-    .menu-btn {
-        padding: 12px 24px;
-        margin: 10px;
-        background: #0066ff;
-        color: white;
-        border: 2px solid #333;
-        border-radius: 8px;
-        font-size: 16px;
-        cursor: pointer;
-        touch-action: manipulation;
-    }
-    
-    .menu-btn:active {
-        background: #0052cc;
-        transform: scale(0.95);
-    }
-    
-    .score-display {
-        background: #0066ff;
-        padding: 15px 30px;
-        border-radius: 8px 8px 0 0;
-        width: 100%;
-        max-width: 800px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 18px;
-        font-weight: bold;
-    }
-    
-    .game-info {
-        text-align: center;
-        margin: 20px;
-    }
-    
-    .menu-container {
-        text-align: center;
-        padding: 20px;
-    }
-    
-    h1 {
-        font-size: 2.5rem;
-        margin-bottom: 20px;
-        color: #fff;
-    }
-    
-    .menu-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-        align-items: center;
-    }
-    
-    @media (orientation: landscape) {
         canvas {
-            max-height: 70vh;
+            width: 100vw !important;
+            height: 60vh !important;
+            max-width: 100vw;
+            max-height: 100vh;
+            border: 2px solid #333;
+            background: #0066ff;
+            touch-action: none;
+            display: block;
         }
         
         .controls {
-            bottom: 10px;
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         
         .control-btn {
-            width: 50px;
-            height: 50px;
-            font-size: 16px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            background: rgba(0, 102, 255, 0.8);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            user-select: none;
         }
-    }
-    
-    @media (max-width: 480px) {
-        h1 {
-            font-size: 2rem;
+        
+        .control-btn:active {
+            background: rgba(0, 102, 255, 1);
+            transform: scale(0.95);
+        }
+        
+        .direction-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .menu-btn {
+            padding: 12px 24px;
+            margin: 10px;
+            background: #0066ff;
+            color: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        .menu-btn:active {
+            background: #0052cc;
+            transform: scale(0.95);
         }
         
         .score-display {
-            font-size: 16px;
-            padding: 10px 20px;
+            background: #0066ff;
+            padding: 15px 30px;
+            border-radius: 8px 8px 0 0;
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
         }
         
-        .control-btn {
-            width: 55px;
-            height: 55px;
+        .game-info {
+            text-align: center;
+            margin: 20px;
         }
-    }
-</style></head>
+        
+        .menu-container {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        @media (orientation: landscape) {
+            canvas {
+                max-height: 70vh;
+            }
+            
+            .controls {
+                bottom: 10px;
+            }
+            
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .score-display {
+                font-size: 16px;
+                padding: 10px 20px;
+            }
+            
+            .control-btn {
+                width: 55px;
+                height: 55px;
+            }
+        }
+    </style>
+</head>
 <body>
     <div id="root"></div>
     
@@ -305,14 +325,17 @@
         // SlimeSoccerMobileのstateにplayerCharId, aiCharId, step（画面遷移用）を追加
         const [playerCharId, setPlayerCharId] = useState(null);
         const [aiCharId, setAiCharId] = useState(null);
-        const [step, setStep] = useState(0); // 0: メニュー, 1: 難易度選択, 2: 試合時間選択, 3: ゲーム
+        const [step, setStep] = useState(0); // 0: メニュー, 1: キャラクター選択, 2: 難易度選択, 3: 試合時間選択, 4: ゲーム // ステップを調整
+        
+        // 難易度状態（追加）
+        const [aiDifficulty, setAiDifficulty] = useState({ delay: 200 }); // デフォルト: 簡単
         
         // キャラクター選択画面のUIを追加
         const [selectedCharacter, setSelectedCharacter] = useState(null);
-
+    
         // メニュー/ゲーム時のbodyスタイル切り替え
         useEffect(() => {
-            if (step === 3 || gameStarted) {
+            if (step === 4 || gameStarted) {
                 document.body.style.touchAction = 'none';
                 document.body.style.overflow = 'hidden';
             } else {
@@ -320,13 +343,14 @@
                 document.body.style.overflow = 'auto';
             }
         }, [step, gameStarted]);
-
+    
         // Timer
         useEffect(() => {
             if (gameStarted && timeLeft > 0) {
                 const timer = setInterval(() => {
                     setTimeLeft(prev => {
                         if (prev <= 1) {
+                            clearInterval(timer);
                             setGameStarted(false);
                             determineWinner();
                             return 0;
@@ -355,7 +379,7 @@
             const leftRadius = getSlimeRadius(aiCharId);
             const rightRadius = getSlimeRadius(playerCharId);
             state.leftSlime.x = 200;
-            state.leftSlime.y = (GAME_HEIGHT - GROUND_HEIGHT) - leftRadius; // 中心y
+            state.leftSlime.y = GAME_HEIGHT - GROUND_HEIGHT - leftRadius; // 中心y
             state.leftSlime.vx = 0;
             state.leftSlime.vy = 0;
             state.leftSlime.goalLineTime = 0;
@@ -363,13 +387,13 @@
             state.leftSlime.lastDecisionTime = 0;
             state.leftSlime.decisionCooldown = 0;
             state.leftSlime.stableStart = true;
-
+    
             state.rightSlime.x = 600;
-            state.rightSlime.y = (GAME_HEIGHT - GROUND_HEIGHT) - rightRadius; // 中心y
+            state.rightSlime.y = GAME_HEIGHT - GROUND_HEIGHT - rightRadius; // 中心y
             state.rightSlime.vx = 0;
             state.rightSlime.vy = 0;
             state.rightSlime.goalLineTime = 0;
-
+    
             state.ball.x = GAME_WIDTH / 2;
             state.ball.y = 150;
             state.ball.vx = 0;
@@ -390,7 +414,7 @@
         
         // AI行動タイマー
         const aiLastUpdateRef = useRef(0);
-
+    
         // updateAI: AIキャラの能力値・難易度反映
         const updateAI = useCallback((currentTime) => {
             if (!aiCharId) return;
@@ -398,7 +422,7 @@
             const ai = state.leftSlime;
             const ball = state.ball;
             const stats = getCharStats(aiCharId);
-            const aiDelay = window.aiDifficulty?.delay ?? 200;
+            const aiDelay = aiDifficulty.delay;
             if (currentTime - aiLastUpdateRef.current < aiDelay) return;
             aiLastUpdateRef.current = currentTime;
             // AI: ボールを追いかける
@@ -413,13 +437,13 @@
             if (ball.y < ai.y - 100 && Math.abs(ball.x - ai.x) < 100 && ai.vy === 0) {
                 ai.vy = SLIME_JUMP_POWER * stats.jump;
             }
-        }, [aiCharId]);
-
+        }, [aiCharId, aiDifficulty]);
+    
         // スライムの地面位置計算用ヘルパー
         const getSlimeRadius = (charId) => SLIME_RADIUS * Math.max(0.85, getCharStats(charId).size) * 1.4;
         // 地面のY座標
         const groundY = GAME_HEIGHT - GROUND_HEIGHT;
-
+    
         // --- シングルプレイ用タッチ・ボタン操作ハンドラ ---
         // プレイヤー操作状態
         const playerControlRef = useRef({ vx: 0, jump: false });
@@ -444,7 +468,7 @@
                 window.removeEventListener('keyup', up);
             };
         }, []);
-
+    
         // --- 仮想ジョイスティックとタッチジャンプイベント ---
         useEffect(() => {
             const canvas = canvasRef.current;
@@ -514,51 +538,271 @@
                 canvas.removeEventListener('touchend', handleTouchEnd);
             };
         }, [gameStarted, playerCharId]);
-
-        // updatePhysics: ジョイスティック入力反映
-        const updatePhysics = useCallback((currentTime) => {
+    
+        // 物理更新関数 (修正: 完全な物理処理を追加)
+        const updatePhysics = useCallback((delta) => {
             const state = gameStateRef.current;
             const playerStats = getCharStats(playerCharId);
-            state.rightSlime.vx = playerControlRef.current.vx;
-            // ジャンプ判定
-            const rightSlimeRadius = getSlimeRadius(playerCharId);
-            if (playerControlRef.current.jump && state.rightSlime.y + rightSlimeRadius >= groundY - 1) {
+            const aiStats = getCharStats(aiCharId);
+            const leftRadius = getSlimeRadius(aiCharId);
+            const rightRadius = getSlimeRadius(playerCharId);
+    
+            // プレイヤー入力反映
+            state.rightSlime.vx = playerControlRef.current.vx * playerStats.speed;
+            if (playerControlRef.current.jump && state.rightSlime.y + rightRadius >= groundY - 1) {
                 state.rightSlime.vy = SLIME_JUMP_POWER * playerStats.jump;
                 playerControlRef.current.jump = false;
             }
-            updateAI(currentTime);
-            // ... (残りの物理処理は変更なし)
-        }, [playerCharId, aiCharId, updateAI]);
-
-        // draw: ジョイスティック描画追加
-        const draw = useCallback(() => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
-            // ... (既存の描画: フィールド、スライム、ボール)
+    
+            // 重力と移動更新 (スライム)
+            state.leftSlime.vy += GRAVITY * (delta / 16);
+            state.leftSlime.x += state.leftSlime.vx * (delta / 16);
+            state.leftSlime.y += state.leftSlime.vy * (delta / 16);
+            if (state.leftSlime.y + leftRadius > groundY) {
+                state.leftSlime.y = groundY - leftRadius;
+                state.leftSlime.vy = 0;
+            }
+            // 壁衝突 (左スライム)
+            if (state.leftSlime.x - leftRadius < 0) state.leftSlime.x = leftRadius;
+            if (state.leftSlime.x + leftRadius > GAME_WIDTH / 2) state.leftSlime.x = GAME_WIDTH / 2 - leftRadius;
+    
+            state.rightSlime.vy += GRAVITY * (delta / 16);
+            state.rightSlime.x += state.rightSlime.vx * (delta / 16);
+            state.rightSlime.y += state.rightSlime.vy * (delta / 16);
+            if (state.rightSlime.y + rightRadius > groundY) {
+                state.rightSlime.y = groundY - rightRadius;
+                state.rightSlime.vy = 0;
+            }
+            // 壁衝突 (右スライム)
+            if (state.rightSlime.x - rightRadius < GAME_WIDTH / 2) state.rightSlime.x = GAME_WIDTH / 2 + rightRadius;
+            if (state.rightSlime.x + rightRadius > GAME_WIDTH) state.rightSlime.x = GAME_WIDTH - rightRadius;
+    
+            // ボール更新
+            if (!state.ball.grabbedBy) {
+                state.ball.vy += GRAVITY * (delta / 16);
+                state.ball.x += state.ball.vx * (delta / 16);
+                state.ball.y += state.ball.vy * (delta / 16);
+                state.ball.vx *= BALL_DAMPING;
+                state.ball.vy *= BALL_DAMPING;
+                // 地面バウンス
+                if (state.ball.y + BALL_RADIUS > groundY) {
+                    state.ball.y = groundY - BALL_RADIUS;
+                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                }
+                // 壁衝突
+                if (state.ball.x - BALL_RADIUS < 0) {
+                    state.ball.x = BALL_RADIUS;
+                    state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
+                }
+                if (state.ball.x + BALL_RADIUS > GAME_WIDTH) {
+                    state.ball.x = GAME_WIDTH - BALL_RADIUS;
+                    state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
+                }
+                // 天井バウンス (オプション)
+                if (state.ball.y - BALL_RADIUS < 0) {
+                    state.ball.y = BALL_RADIUS;
+                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                }
+            }
+    
+            // スライムとボールの衝突 (簡易版: 距離チェックでボール速度変更)
+            const checkCollision = (slime, radius) => {
+                const dx = state.ball.x - slime.x;
+                const dy = state.ball.y - slime.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < radius + BALL_RADIUS) {
+                    const angle = Math.atan2(dy, dx);
+                    state.ball.vx = Math.cos(angle) * 10; // 跳ね返り
+                    state.ball.vy = Math.sin(angle) * 10;
+                }
+            };
+            checkCollision(state.leftSlime, leftRadius);
+            checkCollision(state.rightSlime, rightRadius);
+    
+            // ゴール判定 (左ゴール: 右チーム得点, 右ゴール: 左チーム得点)
+            if (state.ball.x < GOAL_WIDTH && state.ball.y > groundY - GOAL_HEIGHT) {
+                setScore(prev => ({ ...prev, right: prev.right + 1 }));
+                resetPositions();
+            } else if (state.ball.x > GAME_WIDTH - GOAL_WIDTH && state.ball.y > groundY - GOAL_HEIGHT) {
+                setScore(prev => ({ ...prev, left: prev.left + 1 }));
+                resetPositions();
+            }
+    
+            // 最大速度制限
+            const ballSpeed = Math.sqrt(state.ball.vx ** 2 + state.ball.vy ** 2);
+            if (ballSpeed > MAX_BALL_SPEED) {
+                const factor = MAX_BALL_SPEED / ballSpeed;
+                state.ball.vx *= factor;
+                state.ball.vy *= factor;
+            }
+        }, [playerCharId, aiCharId]);
+    
+        // ゲームループ (修正: 追加)
+        useEffect(() => {
+            if (step === 4 && gameStarted && canvasRef.current) {
+                resetPositions();
+                const ctx = canvasRef.current.getContext('2d');
+                lastFrameTimeRef.current = performance.now();
+                const loop = (currentTime) => {
+                    if (!gameStarted) return;
+                    const delta = currentTime - lastFrameTimeRef.current;
+                    if (delta > 16) { // フレームレートキャップ
+                        updateAI(currentTime);
+                        updatePhysics(delta);
+                        draw(ctx);
+                        lastFrameTimeRef.current = currentTime - (delta % 16);
+                    }
+                    animationRef.current = requestAnimationFrame(loop);
+                };
+                animationRef.current = requestAnimationFrame(loop);
+                return () => cancelAnimationFrame(animationRef.current);
+            }
+        }, [gameStarted, step, updateAI, updatePhysics]);
+    
+        // 描画関数 (修正: ジョイスティックとフィールド描画追加)
+        const draw = (ctx) => {
+            const state = gameStateRef.current;
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    
+            // フィールド描画
+            ctx.fillStyle = '#0066ff';
+            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+            ctx.fillStyle = '#00ff00';
+            ctx.fillRect(0, groundY, GAME_WIDTH, GROUND_HEIGHT);
+    
+            // ゴール描画
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, groundY - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
+            ctx.fillRect(GAME_WIDTH - GOAL_WIDTH, groundY - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
+    
+            // スライム描画
+            const drawSlime = (slime, charId) => {
+                const stats = getCharStats(charId);
+                const radius = getSlimeRadius(charId);
+                ctx.fillStyle = stats.color;
+                ctx.beginPath();
+                ctx.arc(slime.x, slime.y, radius, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.fillStyle = '#000';
+                ctx.font = '12px Arial';
+                ctx.fillText(stats.name, slime.x - 20, slime.y - radius - 5);
+            };
+            drawSlime(state.leftSlime, aiCharId);
+            drawSlime(state.rightSlime, playerCharId);
+    
+            // ボール描画
+            ctx.fillStyle = '#ff0000';
+            ctx.beginPath();
+            ctx.arc(state.ball.x, state.ball.y, BALL_RADIUS, 0, 2 * Math.PI);
+            ctx.fill();
+    
+            // ジョイスティック描画
             if (joystickRef.current.active) {
-                // 外円
                 ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
                 ctx.lineWidth = 2;
                 ctx.beginPath();
                 ctx.arc(joystickRef.current.centerX, joystickRef.current.centerY, joystickRef.current.radius, 0, 2 * Math.PI);
                 ctx.stroke();
-                // 内スティック
                 ctx.fillStyle = 'rgba(0, 102, 255, 0.8)';
                 ctx.beginPath();
                 ctx.arc(joystickRef.current.currentX, joystickRef.current.currentY, 20, 0, 2 * Math.PI);
                 ctx.fill();
             }
-        }, [playerCharId, aiCharId]);
-
-        // ... (残りのコードは変更なし: gameLoop, formatTime, JSX)
-
+        };
+    
+        // 時間フォーマット
+        const formatTime = (time) => {
+            const minutes = Math.floor(time / 60);
+            const seconds = time % 60;
+            return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+        };
+    
+        // AIキャラクターのランダム選択 (追加)
+        const selectRandomAi = () => {
+            const keys = Object.keys(CHARACTER_STATS);
+            const randomKey = keys[Math.floor(Math.random() * keys.length)];
+            setAiCharId(randomKey);
+        };
+    
         return (
-            // ... (JSXは変更なし)
+            <div className="game-container">
+                {step === 0 && (
+                    <div className="menu-container">
+                        <h1>じゃがりんスライムサッカー</h1>
+                        <div className="menu-buttons">
+                            <button className="menu-btn" onClick={() => setStep(1)}>シングルプレイ開始</button>
+                        </div>
+                    </div>
+                )}
+                {step === 1 && ( // キャラクター選択
+                    <div className="menu-container">
+                        <h1>キャラクターを選択</h1>
+                        <div className="character-grid-scroll">
+                            <div className="character-grid">
+                                {Object.entries(CHARACTER_STATS).map(([id, stats]) => (
+                                    <div
+                                        key={id}
+                                        className={`character-card ${selectedCharacter === id ? 'selected' : ''}`}
+                                        onClick={() => setSelectedCharacter(id)}
+                                    >
+                                        <div style={{ background: stats.color, width: '50px', height: '50px', margin: '0 auto', borderRadius: '50%' }}></div>
+                                        <p>{stats.name}</p>
+                                        <p>速度: {stats.speed}</p>
+                                        <p>ジャンプ: {stats.jump}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                        <div className="character-select-bottom">
+                            <button className="menu-btn" disabled={!selectedCharacter} onClick={() => {
+                                setPlayerCharId(selectedCharacter);
+                                selectRandomAi();
+                                setStep(2);
+                            }}>次へ</button>
+                        </div>
+                    </div>
+                )}
+                {step === 2 && ( // 難易度選択
+                    <div className="menu-container">
+                        <h1>難易度を選択</h1>
+                        <div className="menu-buttons">
+                            <button className="menu-btn" onClick={() => { setAiDifficulty({ delay: 300 }); setStep(3); }}>簡単</button>
+                            <button className="menu-btn" onClick={() => { setAiDifficulty({ delay: 150 }); setStep(3); }}>普通</button>
+                            <button className="menu-btn" onClick={() => { setAiDifficulty({ delay: 50 }); setStep(3); }}>難しい</button>
+                        </div>
+                    </div>
+                )}
+                {step === 3 && ( // 試合時間選択
+                    <div className="menu-container">
+                        <h1>試合時間を選択</h1>
+                        <div className="menu-buttons">
+                            <button className="menu-btn" onClick={() => { setTimeLeft(60); setGameStarted(true); setStep(4); }}>1分</button>
+                            <button className="menu-btn" onClick={() => { setTimeLeft(180); setGameStarted(true); setStep(4); }}>3分</button>
+                            <button className="menu-btn" onClick={() => { setTimeLeft(300); setGameStarted(true); setStep(4); }}>5分</button>
+                        </div>
+                    </div>
+                )}
+                {step === 4 && gameStarted && (
+                    <>
+                        <div className="score-display">
+                            <span>青チーム: {score.left}</span>
+                            <span>{formatTime(timeLeft)}</span>
+                            <span>赤チーム: {score.right}</span>
+                        </div>
+                        <canvas ref={canvasRef} width={GAME_WIDTH} height={GAME_HEIGHT} />
+                    </>
+                )}
+                {winner && (
+                    <div className="game-info">
+                        <h2>{winner}の勝ち！</h2>
+                        <button className="menu-btn" onClick={() => { resetGame(); setStep(0); }}>メニューに戻る</button>
+                    </div>
+                )}
+            </div>
         );
     };
     
     ReactDOM.render(<SlimeSoccerMobile />, document.getElementById('root'));
-</script></body>
+</script>
+</body>
 </html>
-
