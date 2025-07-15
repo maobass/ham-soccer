@@ -52,34 +52,7 @@
             margin: 30px auto 0 auto;
             width: 100%;
         }
-    
-        .character-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 10px;
-            padding: 10px;
-        }
-    
-        .character-card {
-            background: #333;
-            border-radius: 8px;
-            padding: 10px;
-            text-align: center;
-            cursor: pointer;
-        }
-    
-        .character-card.selected {
-            border: 2px solid #0066ff;
-        }
-    
-        .character-card img {
-            width: 50px;
-            height: 50px;
-            object-fit: contain;
-            margin: 0 auto;
-            display: block;
-        }
-    
+
         .character-select-bottom {
             width: 100%;
             display: flex;
@@ -91,7 +64,7 @@
             padding-bottom: 24px;
             z-index: 10;
         }
-    
+
         canvas {
             width: 100vw !important;
             height: 60vh !important;
@@ -234,583 +207,738 @@
 <body>
     <div id="root"></div>
     
-<script type="text/babel">
-    const { useState, useEffect, useRef, useCallback } = React;
-    
-    // Game constants
-    const GAME_WIDTH = 800;
-    const GAME_HEIGHT = 400;
-    const GROUND_HEIGHT = 80;
-    const SLIME_RADIUS = 40;
-    const BALL_RADIUS = 10;
-    const GOAL_WIDTH = 80;
-    const GOAL_HEIGHT = 120;
-    const GRAVITY = 0.6;
-    const SLIME_SPEED = 5;
-    const SLIME_JUMP_POWER = -12;
-    const BALL_DAMPING = 0.99;
-    const BALL_BOUNCE_DAMPING = 0.8;
-    const MAX_BALL_SPEED = 13;
-    
-    /**
-     * キャラクター情報（画像ファイル名は images/001.png ～ images/029.png）
-     */
-    const CHARACTER_STATS = {
-      '001': { name: "じゃが", speed: 1.2, jump: 1.1, size: 1.0, color: "#D4AF37", specialty: "リーダーシップ", emoji: "" },
-      '002': { name: "さくら", speed: 1.0, jump: 1.0, size: 0.9, color: "#FFB6C1", specialty: "動物と会話", emoji: "" },
-      '003': { name: "プリン", speed: 0.8, jump: 0.9, size: 1.1, color: "#F5DEB3", specialty: "法律相談", emoji: "" },
-      '004': { name: "かぷちーも", speed: 1.1, jump: 1.0, size: 1.0, color: "#DEB887", specialty: "料理", emoji: "" },
-      '005': { name: "ハム娘", speed: 0.9, jump: 1.0, size: 0.9, color: "#FF69B4", specialty: "医療", emoji: "" },
-      '006': { name: "くべし", speed: 1.3, jump: 1.2, size: 1.0, color: "#32CD32", specialty: "冒険", emoji: "" },
-      '007': { name: "リョータ", speed: 1.2, jump: 1.3, size: 1.1, color: "#87CEEB", specialty: "スポーツ", emoji: "" },
-      '008': { name: "ハムまろ", speed: 0.8, jump: 0.9, size: 1.0, color: "#F0F8FF", specialty: "戦略", emoji: "" },
-      '009': { name: "リーゼント丸", speed: 1.0, jump: 1.0, size: 1.0, color: "#90EE90", specialty: "集計", emoji: "" },
-      '010': { name: "もみじ", speed: 1.0, jump: 1.1, size: 0.9, color: "#FF6347", specialty: "カウンセリング", emoji: "" },
-      '011': { name: "アクア", speed: 1.1, jump: 1.2, size: 1.0, color: "#00CED1", specialty: "エンジニア", emoji: "" },
-      '012': { name: "うずら", speed: 0.9, jump: 1.0, size: 1.0, color: "#DDA0DD", specialty: "プロマネ", emoji: "" },
-      '013': { name: "すいめい", speed: 1.1, jump: 1.4, size: 0.9, color: "#B0E0E6", specialty: "忍術", emoji: "" },
-      '014': { name: "ハムりん", speed: 1.3, jump: 1.0, size: 0.8, color: "#FFD700", specialty: "ギャンブル", emoji: "" },
-      '015': { name: "ラッキー", speed: 1.0, jump: 1.1, size: 1.0, color: "#DA70D6", specialty: "金庫番", emoji: "" },
-      '016': { name: "なないろ", speed: 1.2, jump: 1.3, size: 0.8, color: "#9370DB", specialty: "発明", emoji: "" },
-      '017': { name: "くり坊", speed: 0.9, jump: 1.1, size: 1.2, color: "#8B4513", specialty: "格闘技", emoji: "" },
-      '018': { name: "みたらし", speed: 1.1, jump: 1.0, size: 1.0, color: "#CD853F", specialty: "何でも屋", emoji: "" },
-      '019': { name: "タンゴ", speed: 1.0, jump: 1.2, size: 1.0, color: "#2F4F4F", specialty: "ツッコミ", emoji: "" },
-      '020': { name: "ついてる", speed: 1.1, jump: 1.1, size: 0.9, color: "#F0E68C", specialty: "エンタメ", emoji: "" },
-      '021': { name: "バク", speed: 1.2, jump: 1.4, size: 0.9, color: "#4169E1", specialty: "サイキック", emoji: "" },
-      '022': { name: "このは", speed: 1.1, jump: 1.0, size: 1.0, color: "#228B22", specialty: "人生相談", emoji: "" },
-      '023': { name: "たいあん", speed: 1.4, jump: 1.1, size: 1.1, color: "#FF4500", specialty: "運転", emoji: "" },
-      '024': { name: "ハムレット", speed: 1.2, jump: 1.2, size: 1.0, color: "#483D8B", specialty: "ヒーロー", emoji: "" },
-      '025': { name: "クリオネア", speed: 1.3, jump: 1.0, size: 0.8, color: "#87CEFA", specialty: "宴会部長", emoji: "" },
-      '026': { name: "むらむすめ", speed: 1.2, jump: 1.1, size: 1.0, color: "#FF1493", specialty: "ギャル", emoji: "" },
-      '027': { name: "あんみつ姫", speed: 0.9, jump: 1.0, size: 1.0, color: "#DDA0DD", specialty: "お嬢様", emoji: "" },
-      '028': { name: "べにたん", speed: 1.0, jump: 1.1, size: 1.0, color: "#DC143C", specialty: "芸術家", emoji: "" },
-      '029': { name: "もなちゃん", speed: 1.0, jump: 1.2, size: 0.9, color: "#708090", specialty: "星占い", emoji: "" }
-    };
-    
-    const SlimeSoccerMobile = () => {
-        const canvasRef = useRef(null);
-        const animationRef = useRef(null);
-        const lastFrameTimeRef = useRef(0);
+    <script type="text/babel" data-presets="react">
+        const { useState, useEffect, useRef, useCallback } = React;
         
-        // Game state
-        const [gameMode, setGameMode] = useState(null);
-        const [timeLeft, setTimeLeft] = useState(0);
-        const [score, setScore] = useState({ left: 0, right: 0 });
-        const [gameStarted, setGameStarted] = useState(false);
-        const [winner, setWinner] = useState(null);
+        // Game constants
+        const GAME_WIDTH = 800;
+        const GAME_HEIGHT = 400;
+        const GROUND_HEIGHT = 80;
+        const SLIME_RADIUS = 40;
+        const BALL_RADIUS = 10;
+        const GOAL_WIDTH = 80;
+        const GOAL_HEIGHT = 120;
+        const GRAVITY = 0.6;
+        const SLIME_SPEED = 5;
+        const SLIME_JUMP_POWER = -12;
+        const BALL_DAMPING = 0.99;
+        const BALL_BOUNCE_DAMPING = 0.8;
+        const MAX_BALL_SPEED = 13;
         
-        // Game objects state
-        const gameStateRef = useRef({
-            leftSlime: {
-                x: 200,
-                y: GAME_HEIGHT - GROUND_HEIGHT,
-                vx: 0,
-                vy: 0,
-                goalLineTime: 0,
-                targetX: 200,
-                lastDecisionTime: 0,
-                decisionCooldown: 0,
-                stableStart: true
-            },
-            rightSlime: {
-                x: 600,
-                y: GAME_HEIGHT - GROUND_HEIGHT,
-                vx: 0,
-                vy: 0,
-                goalLineTime: 0
-            },
-            ball: {
-                x: GAME_WIDTH / 2,
-                y: 150,
-                vx: 0,
-                vy: 0,
-                grabbedBy: null,
-                grabAngle: 0,
-                grabAngularVelocity: 0
-            }
-        });
-        
-        // SlimeSoccerMobileのstateにplayerCharId, aiCharId, step（画面遷移用）を追加
-        const [playerCharId, setPlayerCharId] = useState(null);
-        const [aiCharId, setAiCharId] = useState(null);
-        const [step, setStep] = useState(0); // 0: メニュー, 1: キャラクター選択, 2: 難易度選択, 3: 試合時間選択, 4: ゲーム // ステップを調整
-        
-        // 難易度状態（追加）
-        const [aiDifficulty, setAiDifficulty] = useState({ delay: 200 }); // デフォルト: 簡単
-        
-        // キャラクター選択画面のUIを追加
-        const [selectedCharacter, setSelectedCharacter] = useState(null);
-    
-        // メニュー/ゲーム時のbodyスタイル切り替え
-        useEffect(() => {
-            if (step === 4 || gameStarted) {
-                document.body.style.touchAction = 'none';
-                document.body.style.overflow = 'hidden';
-            } else {
-                document.body.style.touchAction = 'auto';
-                document.body.style.overflow = 'auto';
-            }
-        }, [step, gameStarted]);
-    
-        // Timer
-        useEffect(() => {
-            if (gameStarted && timeLeft > 0) {
-                const timer = setInterval(() => {
-                    setTimeLeft(prev => {
-                        if (prev <= 1) {
-                            clearInterval(timer);
-                            setGameStarted(false);
-                            determineWinner();
-                            return 0;
-                        }
-                        return prev - 1;
-                    });
-                }, 1000);
-                
-                return () => clearInterval(timer);
-            }
-        }, [gameStarted, timeLeft]);
-        
-        const determineWinner = () => {
-            if (score.left > score.right) {
-                setWinner('青チーム');
-            } else if (score.right > score.left) {
-                setWinner('赤チーム');
-            } else {
-                setWinner('引き分け');
-            }
+        /**
+         * キャラクター情報（画像ファイル名は images/001.png ～ images/029.png）
+         */
+        const CHARACTER_STATS = {
+          '001': { name: "じゃが", speed: 1.2, jump: 1.1, size: 1.0, color: "#D4AF37", specialty: "リーダーシップ", emoji: "👑" },
+          '002': { name: "さくら", speed: 1.0, jump: 1.0, size: 0.9, color: "#FFB6C1", specialty: "動物と会話", emoji: "🌸" },
+          '003': { name: "プリン", speed: 0.8, jump: 0.9, size: 1.1, color: "#F5DEB3", specialty: "法律相談", emoji: "📚" },
+          '004': { name: "かぷちーも", speed: 1.1, jump: 1.0, size: 1.0, color: "#DEB887", specialty: "料理", emoji: "👨‍🍳" },
+          '005': { name: "ハム娘", speed: 0.9, jump: 1.0, size: 0.9, color: "#FF69B4", specialty: "医療", emoji: "💊" },
+          '006': { name: "くべし", speed: 1.3, jump: 1.2, size: 1.0, color: "#32CD32", specialty: "冒険", emoji: "🗡️" },
+          '007': { name: "リョータ", speed: 1.2, jump: 1.3, size: 1.1, color: "#87CEEB", specialty: "スポーツ", emoji: "⚽" },
+          '008': { name: "ハムまろ", speed: 0.8, jump: 0.9, size: 1.0, color: "#F0F8FF", specialty: "戦略", emoji: "🧠" },
+          '009': { name: "リーゼント丸", speed: 1.0, jump: 1.0, size: 1.0, color: "#90EE90", specialty: "集計", emoji: "📊" },
+          '010': { name: "もみじ", speed: 1.0, jump: 1.1, size: 0.9, color: "#FF6347", specialty: "カウンセリング", emoji: "🍁" },
+          '011': { name: "アクア", speed: 1.1, jump: 1.2, size: 1.0, color: "#00CED1", specialty: "エンジニア", emoji: "⚙️" },
+          '012': { name: "うずら", speed: 0.9, jump: 1.0, size: 1.0, color: "#DDA0DD", specialty: "プロマネ", emoji: "📋" },
+          '013': { name: "すいめい", speed: 1.1, jump: 1.4, size: 0.9, color: "#B0E0E6", specialty: "忍術", emoji: "🥷" },
+          '014': { name: "ハムりん", speed: 1.3, jump: 1.0, size: 0.8, color: "#FFD700", specialty: "ギャンブル", emoji: "🎲" },
+          '015': { name: "ラッキー", speed: 1.0, jump: 1.1, size: 1.0, color: "#DA70D6", specialty: "金庫番", emoji: "💰" },
+          '016': { name: "なないろ", speed: 1.2, jump: 1.3, size: 0.8, color: "#9370DB", specialty: "発明", emoji: "🔬" },
+          '017': { name: "くり坊", speed: 0.9, jump: 1.1, size: 1.2, color: "#8B4513", specialty: "格闘技", emoji: "👊" },
+          '018': { name: "みたらし", speed: 1.1, jump: 1.0, size: 1.0, color: "#CD853F", specialty: "何でも屋", emoji: "🛠️" },
+          '019': { name: "タンゴ", speed: 1.0, jump: 1.2, size: 1.0, color: "#2F4F4F", specialty: "ツッコミ", emoji: "😤" },
+          '020': { name: "ついてる", speed: 1.1, jump: 1.1, size: 0.9, color: "#F0E68C", specialty: "エンタメ", emoji: "🎭" },
+          '021': { name: "バク", speed: 1.2, jump: 1.4, size: 0.9, color: "#4169E1", specialty: "サイキック", emoji: "🔮" },
+          '022': { name: "このは", speed: 1.1, jump: 1.0, size: 1.0, color: "#228B22", specialty: "人生相談", emoji: "🌻" },
+          '023': { name: "たいあん", speed: 1.4, jump: 1.1, size: 1.1, color: "#FF4500", specialty: "運転", emoji: "🏎️" },
+          '024': { name: "ハムレット", speed: 1.2, jump: 1.2, size: 1.0, color: "#483D8B", specialty: "ヒーロー", emoji: "🦸" },
+          '025': { name: "クリオネア", speed: 1.3, jump: 1.0, size: 0.8, color: "#87CEFA", specialty: "宴会部長", emoji: "🎉" },
+          '026': { name: "むらむすめ", speed: 1.2, jump: 1.1, size: 1.0, color: "#FF1493", specialty: "ギャル", emoji: "💅" },
+          '027': { name: "あんみつ姫", speed: 0.9, jump: 1.0, size: 1.0, color: "#DDA0DD", specialty: "お嬢様", emoji: "👸" },
+          '028': { name: "べにたん", speed: 1.0, jump: 1.1, size: 1.0, color: "#DC143C", specialty: "芸術家", emoji: "🎨" },
+          '029': { name: "もなちゃん", speed: 1.0, jump: 1.2, size: 0.9, color: "#708090", specialty: "星占い", emoji: "⭐" }
         };
         
-        // スライム初期化・リセット時のy座標を中心基準に修正
-        const resetPositions = () => {
-            const state = gameStateRef.current;
-            const leftRadius = getSlimeRadius(aiCharId);
-            const rightRadius = getSlimeRadius(playerCharId);
-            state.leftSlime.x = 200;
-            state.leftSlime.y = GAME_HEIGHT - GROUND_HEIGHT - leftRadius; // 中心y
-            state.leftSlime.vx = 0;
-            state.leftSlime.vy = 0;
-            state.leftSlime.goalLineTime = 0;
-            state.leftSlime.targetX = 200;
-            state.leftSlime.lastDecisionTime = 0;
-            state.leftSlime.decisionCooldown = 0;
-            state.leftSlime.stableStart = true;
-    
-            state.rightSlime.x = 600;
-            state.rightSlime.y = GAME_HEIGHT - GROUND_HEIGHT - rightRadius; // 中心y
-            state.rightSlime.vx = 0;
-            state.rightSlime.vy = 0;
-            state.rightSlime.goalLineTime = 0;
-    
-            state.ball.x = GAME_WIDTH / 2;
-            state.ball.y = 150;
-            state.ball.vx = 0;
-            state.ball.vy = 0;
-            state.ball.grabbedBy = null;
-            state.ball.grabAngle = 0;
-            state.ball.grabAngularVelocity = 0;
-        };
-        
-        const resetGame = () => {
-            resetPositions();
-            setScore({ left: 0, right: 0 });
-            setWinner(null);
-        };
-        
-        // ゲーム本体のキャラ能力・AI難易度反映用ヘルパー
-        const getCharStats = (id) => CHARACTER_STATS[id] || { speed: 1, jump: 1, size: 1, color: '#888', name: '', emoji: '' };
-        
-        // AI行動タイマー
-        const aiLastUpdateRef = useRef(0);
-    
-        // updateAI: AIキャラの能力値・難易度反映
-        const updateAI = useCallback((currentTime) => {
-            if (!aiCharId) return;
-            const state = gameStateRef.current;
-            const ai = state.leftSlime;
-            const ball = state.ball;
-            const stats = getCharStats(aiCharId);
-            const aiDelay = aiDifficulty.delay;
-            if (currentTime - aiLastUpdateRef.current < aiDelay) return;
-            aiLastUpdateRef.current = currentTime;
-            // AI: ボールを追いかける
-            if (ball.x < ai.x - 20) {
-                ai.vx = -SLIME_SPEED * stats.speed;
-            } else if (ball.x > ai.x + 20) {
-                ai.vx = SLIME_SPEED * stats.speed;
-            } else {
-                ai.vx = 0;
-            }
-            // ジャンプ（条件を-100に調整して過剰ジャンプ防止）
-            if (ball.y < ai.y - 100 && Math.abs(ball.x - ai.x) < 100 && ai.vy === 0) {
-                ai.vy = SLIME_JUMP_POWER * stats.jump;
-            }
-        }, [aiCharId, aiDifficulty]);
-    
-        // スライムの地面位置計算用ヘルパー
-        const getSlimeRadius = (charId) => SLIME_RADIUS * Math.max(0.85, getCharStats(charId).size) * 1.4;
-        // 地面のY座標
-        const groundY = GAME_HEIGHT - GROUND_HEIGHT;
-    
-        // --- シングルプレイ用タッチ・ボタン操作ハンドラ ---
-        // プレイヤー操作状態
-        const playerControlRef = useRef({ vx: 0, jump: false });
-        // ジョイスティック状態
-        const joystickRef = useRef({ active: false, centerX: 0, centerY: 0, currentX: 0, currentY: 0, radius: 50 });
-        // キーイベント
-        useEffect(() => {
-            const down = (e) => {
-                if (e.repeat) return;
-                if (e.key === 'ArrowLeft') playerControlRef.current.vx = -SLIME_SPEED;
-                if (e.key === 'ArrowRight') playerControlRef.current.vx = SLIME_SPEED;
-                if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = true;
-            };
-            const up = (e) => {
-                if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') playerControlRef.current.vx = 0;
-                if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = false;
-            };
-            window.addEventListener('keydown', down);
-            window.addEventListener('keyup', up);
-            return () => {
-                window.removeEventListener('keydown', down);
-                window.removeEventListener('keyup', up);
-            };
-        }, []);
-    
-        // --- 仮想ジョイスティックとタッチジャンプイベント ---
-        useEffect(() => {
-            const canvas = canvasRef.current;
-            if (!canvas) return;
-            let touchIdentifiers = {}; // マルチタッチ追跡
-            const scaleX = GAME_WIDTH / canvas.clientWidth;
-            const scaleY = GAME_HEIGHT / canvas.clientHeight;
-            const handleTouchStart = (e) => {
-                e.preventDefault();
-                for (let touch of e.changedTouches) {
-                    touchIdentifiers[touch.identifier] = true;
-                    const x = touch.clientX * scaleX;
-                    const y = touch.clientY * scaleY;
-                    if (!joystickRef.current.active && x < GAME_WIDTH / 2 && y > GAME_HEIGHT / 2) {
-                        // ジョイスティック活性化
-                        joystickRef.current.active = true;
-                        joystickRef.current.centerX = x;
-                        joystickRef.current.centerY = y;
-                        joystickRef.current.currentX = x;
-                        joystickRef.current.currentY = y;
-                    } else {
-                        // ジョイスティック外: ジャンプ
-                        playerControlRef.current.jump = true;
-                    }
+        const SlimeSoccerMobile = () => {
+            const canvasRef = useRef(null);
+            const animationRef = useRef(null);
+            const lastFrameTimeRef = useRef(0);
+            
+            // Game state
+            const [gameMode, setGameMode] = useState(null);
+            const [timeLeft, setTimeLeft] = useState(0);
+            const [score, setScore] = useState({ left: 0, right: 0 });
+            const [gameStarted, setGameStarted] = useState(false);
+            const [winner, setWinner] = useState(null);
+            
+            // Game objects state
+            const gameStateRef = useRef({
+                leftSlime: {
+                    x: 200,
+                    y: GAME_HEIGHT - GROUND_HEIGHT,
+                    vx: 0,
+                    vy: 0,
+                    goalLineTime: 0,
+                    targetX: 200,
+                    lastDecisionTime: 0,
+                    decisionCooldown: 0,
+                    stableStart: true
+                },
+                rightSlime: {
+                    x: 600,
+                    y: GAME_HEIGHT - GROUND_HEIGHT,
+                    vx: 0,
+                    vy: 0,
+                    goalLineTime: 0
+                },
+                ball: {
+                    x: GAME_WIDTH / 2,
+                    y: 150,
+                    vx: 0,
+                    vy: 0,
+                    grabbedBy: null,
+                    grabAngle: 0,
+                    grabAngularVelocity: 0
+                }
+            });
+            
+            // SlimeSoccerMobileのstateにplayerCharId, aiCharId, step（画面遷移用）を追加
+            const [playerCharId, setPlayerCharId] = useState(null);
+            const [aiCharId, setAiCharId] = useState(null);
+            const [step, setStep] = useState(0); // 0: メニュー, 1: 難易度選択, 2: 試合時間選択, 3: ゲーム
+            
+            // キャラクター選択画面のUIを追加
+            const [selectedCharacter, setSelectedCharacter] = useState(null);
+
+            // メニュー/ゲーム時のbodyスタイル切り替え
+            useEffect(() => {
+                if (step === 3 || gameStarted) {
+                    document.body.style.touchAction = 'none';
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.touchAction = 'auto';
+                    document.body.style.overflow = 'auto';
+                }
+            }, [step, gameStarted]);
+
+            // Timer
+            useEffect(() => {
+                if (gameStarted && timeLeft > 0) {
+                    const timer = setInterval(() => {
+                        setTimeLeft(prev => {
+                            if (prev <= 1) {
+                                setGameStarted(false);
+                                determineWinner();
+                                return 0;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+                    
+                    return () => clearInterval(timer);
+                }
+            }, [gameStarted, timeLeft]);
+            
+            const determineWinner = () => {
+                if (score.left > score.right) {
+                    setWinner('青チーム');
+                } else if (score.right > score.left) {
+                    setWinner('赤チーム');
+                } else {
+                    setWinner('引き分け');
                 }
             };
-            const handleTouchMove = (e) => {
-                e.preventDefault();
-                for (let touch of e.touches) {
-                    if (joystickRef.current.active && touchIdentifiers[touch.identifier]) {
+            
+            // スライム初期化・リセット時のy座標を中心基準に修正
+            const resetPositions = () => {
+                const state = gameStateRef.current;
+                const leftRadius = getSlimeRadius(aiCharId);
+                const rightRadius = getSlimeRadius(playerCharId);
+                state.leftSlime.x = 200;
+                state.leftSlime.y = (GAME_HEIGHT - GROUND_HEIGHT) - leftRadius; // 中心y
+                state.leftSlime.vx = 0;
+                state.leftSlime.vy = 0;
+                state.leftSlime.goalLineTime = 0;
+                state.leftSlime.targetX = 200;
+                state.leftSlime.lastDecisionTime = 0;
+                state.leftSlime.decisionCooldown = 0;
+                state.leftSlime.stableStart = true;
+
+                state.rightSlime.x = 600;
+                state.rightSlime.y = (GAME_HEIGHT - GROUND_HEIGHT) - rightRadius; // 中心y
+                state.rightSlime.vx = 0;
+                state.rightSlime.vy = 0;
+                state.rightSlime.goalLineTime = 0;
+
+                state.ball.x = GAME_WIDTH / 2;
+                state.ball.y = 150;
+                state.ball.vx = 0;
+                state.ball.vy = 0;
+                state.ball.grabbedBy = null;
+                state.ball.grabAngle = 0;
+                state.ball.grabAngularVelocity = 0;
+            };
+            
+            const resetGame = () => {
+                resetPositions();
+                setScore({ left: 0, right: 0 });
+                setWinner(null);
+            };
+            
+            // ゲーム本体のキャラ能力・AI難易度反映用ヘルパー
+            const getCharStats = (id) => CHARACTER_STATS[id] || { speed: 1, jump: 1, size: 1, color: '#888', name: '', emoji: '' };
+            
+            // AI行動タイマー
+            const aiLastUpdateRef = useRef(0);
+
+            // updateAI: AIキャラの能力値・難易度反映
+            const updateAI = useCallback((currentTime) => {
+                if (!aiCharId) return;
+                const state = gameStateRef.current;
+                const ai = state.leftSlime;
+                const ball = state.ball;
+                const stats = getCharStats(aiCharId);
+                const aiDelay = window.aiDifficulty?.delay ?? 200;
+                if (currentTime - aiLastUpdateRef.current < aiDelay) return;
+                aiLastUpdateRef.current = currentTime;
+                // AI: ボールを追いかける
+                if (ball.x < ai.x - 20) {
+                    ai.vx = -SLIME_SPEED * stats.speed;
+                } else if (ball.x > ai.x + 20) {
+                    ai.vx = SLIME_SPEED * stats.speed;
+                } else {
+                    ai.vx = 0;
+                }
+                // ジャンプ（条件を-100に調整して過剰ジャンプ防止）
+                if (ball.y < ai.y - 100 && Math.abs(ball.x - ai.x) < 100 && ai.vy === 0) {
+                    ai.vy = SLIME_JUMP_POWER * stats.jump;
+                }
+            }, [aiCharId]);
+
+            // スライムの地面位置計算用ヘルパー
+            const getSlimeRadius = (charId) => SLIME_RADIUS * Math.max(0.85, getCharStats(charId).size) * 1.4;
+            // 地面のY座標
+            const groundY = GAME_HEIGHT - GROUND_HEIGHT;
+
+            // --- シングルプレイ用タッチ・ボタン操作ハンドラ ---
+            // プレイヤー操作状態
+            const playerControlRef = useRef({ vx: 0, jump: false });
+            // ジョイスティック状態
+            const joystickRef = useRef({ active: false, centerX: 0, centerY: 0, currentX: 0, currentY: 0, radius: 50 });
+            // キーイベント
+            useEffect(() => {
+                const down = (e) => {
+                    if (e.repeat) return;
+                    if (e.key === 'ArrowLeft') playerControlRef.current.vx = -SLIME_SPEED;
+                    if (e.key === 'ArrowRight') playerControlRef.current.vx = SLIME_SPEED;
+                    if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = true;
+                };
+                const up = (e) => {
+                    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') playerControlRef.current.vx = 0;
+                    if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = false;
+                };
+                window.addEventListener('keydown', down);
+                window.addEventListener('keyup', up);
+                return () => {
+                    window.removeEventListener('keydown', down);
+                    window.removeEventListener('keyup', up);
+                };
+            }, []);
+
+            // --- 仮想ジョイスティックとタッチジャンプイベント ---
+            useEffect(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                let touchIdentifiers = {}; // マルチタッチ追跡
+                const scaleX = GAME_WIDTH / canvas.clientWidth;
+                const scaleY = GAME_HEIGHT / canvas.clientHeight;
+                const handleTouchStart = (e) => {
+                    e.preventDefault();
+                    for (let touch of e.changedTouches) {
+                        touchIdentifiers[touch.identifier] = true;
                         const x = touch.clientX * scaleX;
                         const y = touch.clientY * scaleY;
-                        const dx = x - joystickRef.current.centerX;
-                        const dy = y - joystickRef.current.centerY;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        const maxDist = joystickRef.current.radius;
-                        if (dist > maxDist) {
-                            const angle = Math.atan2(dy, dx);
-                            joystickRef.current.currentX = joystickRef.current.centerX + Math.cos(angle) * maxDist;
-                            joystickRef.current.currentY = joystickRef.current.centerY + Math.sin(angle) * maxDist;
-                        } else {
+                        if (!joystickRef.current.active && x < GAME_WIDTH / 2 && y > GAME_HEIGHT / 2) {
+                            // ジョイスティック活性化
+                            joystickRef.current.active = true;
+                            joystickRef.current.centerX = x;
+                            joystickRef.current.centerY = y;
                             joystickRef.current.currentX = x;
                             joystickRef.current.currentY = y;
+                        } else {
+                            // ジョイスティック外: ジャンプ
+                            playerControlRef.current.jump = true;
                         }
-                        // vx更新 (水平移動のみ)
-                        playerControlRef.current.vx = (dx / maxDist) * SLIME_SPEED * getCharStats(playerCharId).speed;
                     }
-                }
-            };
-            const handleTouchEnd = (e) => {
-                e.preventDefault();
-                for (let touch of e.changedTouches) {
-                    delete touchIdentifiers[touch.identifier];
-                }
-                if (Object.keys(touchIdentifiers).length === 0) {
-                    joystickRef.current.active = false;
-                    playerControlRef.current.vx = 0;
+                };
+                const handleTouchMove = (e) => {
+                    e.preventDefault();
+                    for (let touch of e.touches) {
+                        if (joystickRef.current.active && touchIdentifiers[touch.identifier]) {
+                            const x = touch.clientX * scaleX;
+                            const y = touch.clientY * scaleY;
+                            const dx = x - joystickRef.current.centerX;
+                            const dy = y - joystickRef.current.centerY;
+                            const dist = Math.sqrt(dx * dx + dy * dy);
+                            const maxDist = joystickRef.current.radius;
+                            if (dist > maxDist) {
+                                const angle = Math.atan2(dy, dx);
+                                joystickRef.current.currentX = joystickRef.current.centerX + Math.cos(angle) * maxDist;
+                                joystickRef.current.currentY = joystickRef.current.centerY + Math.sin(angle) * maxDist;
+                            } else {
+                                joystickRef.current.currentX = x;
+                                joystickRef.current.currentY = y;
+                            }
+                            // vx更新 (水平移動のみ)
+                            playerControlRef.current.vx = (dx / maxDist) * SLIME_SPEED * getCharStats(playerCharId).speed;
+                        }
+                    }
+                };
+                const handleTouchEnd = (e) => {
+                    e.preventDefault();
+                    for (let touch of e.changedTouches) {
+                        delete touchIdentifiers[touch.identifier];
+                    }
+                    if (Object.keys(touchIdentifiers).length === 0) {
+                        joystickRef.current.active = false;
+                        playerControlRef.current.vx = 0;
+                        playerControlRef.current.jump = false;
+                    }
+                };
+                canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+                canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+                canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+                return () => {
+                    canvas.removeEventListener('touchstart', handleTouchStart);
+                    canvas.removeEventListener('touchmove', handleTouchMove);
+                    canvas.removeEventListener('touchend', handleTouchEnd);
+                };
+            }, [gameStarted, playerCharId]);
+
+            // updatePhysics: ジョイスティック入力反映
+            const updatePhysics = useCallback((currentTime) => {
+                const state = gameStateRef.current;
+                const playerStats = getCharStats(playerCharId);
+                state.rightSlime.vx = playerControlRef.current.vx;
+                // ジャンプ判定
+                const rightSlimeRadius = getSlimeRadius(playerCharId);
+                if (playerControlRef.current.jump && state.rightSlime.y + rightSlimeRadius >= groundY - 1) {
+                    state.rightSlime.vy = SLIME_JUMP_POWER * playerStats.jump;
                     playerControlRef.current.jump = false;
                 }
-            };
-            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-            canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
-            return () => {
-                canvas.removeEventListener('touchstart', handleTouchStart);
-                canvas.removeEventListener('touchmove', handleTouchMove);
-                canvas.removeEventListener('touchend', handleTouchEnd);
-            };
-        }, [gameStarted, playerCharId]);
-    
-        // 物理更新関数 (修正: 完全な物理処理を追加)
-        const updatePhysics = useCallback((delta) => {
-            const state = gameStateRef.current;
-            const playerStats = getCharStats(playerCharId);
-            const aiStats = getCharStats(aiCharId);
-            const leftRadius = getSlimeRadius(aiCharId);
-            const rightRadius = getSlimeRadius(playerCharId);
-    
-            // プレイヤー入力反映
-            state.rightSlime.vx = playerControlRef.current.vx * playerStats.speed;
-            if (playerControlRef.current.jump && state.rightSlime.y + rightRadius >= groundY - 1) {
-                state.rightSlime.vy = SLIME_JUMP_POWER * playerStats.jump;
-                playerControlRef.current.jump = false;
-            }
-    
-            // 重力と移動更新 (スライム)
-            state.leftSlime.vy += GRAVITY * (delta / 16);
-            state.leftSlime.x += state.leftSlime.vx * (delta / 16);
-            state.leftSlime.y += state.leftSlime.vy * (delta / 16);
-            if (state.leftSlime.y + leftRadius > groundY) {
-                state.leftSlime.y = groundY - leftRadius;
-                state.leftSlime.vy = 0;
-            }
-            // 壁衝突 (左スライム)
-            if (state.leftSlime.x - leftRadius < 0) state.leftSlime.x = leftRadius;
-            if (state.leftSlime.x + leftRadius > GAME_WIDTH / 2) state.leftSlime.x = GAME_WIDTH / 2 - leftRadius;
-    
-            state.rightSlime.vy += GRAVITY * (delta / 16);
-            state.rightSlime.x += state.rightSlime.vx * (delta / 16);
-            state.rightSlime.y += state.rightSlime.vy * (delta / 16);
-            if (state.rightSlime.y + rightRadius > groundY) {
-                state.rightSlime.y = groundY - rightRadius;
-                state.rightSlime.vy = 0;
-            }
-            // 壁衝突 (右スライム)
-            if (state.rightSlime.x - rightRadius < GAME_WIDTH / 2) state.rightSlime.x = GAME_WIDTH / 2 + rightRadius;
-            if (state.rightSlime.x + rightRadius > GAME_WIDTH) state.rightSlime.x = GAME_WIDTH - rightRadius;
-    
-            // ボール更新
-            if (!state.ball.grabbedBy) {
-                state.ball.vy += GRAVITY * (delta / 16);
-                state.ball.x += state.ball.vx * (delta / 16);
-                state.ball.y += state.ball.vy * (delta / 16);
-                state.ball.vx *= BALL_DAMPING;
-                state.ball.vy *= BALL_DAMPING;
-                // 地面バウンス
-                if (state.ball.y + BALL_RADIUS > groundY) {
-                    state.ball.y = groundY - BALL_RADIUS;
-                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                updateAI(currentTime);
+                [state.leftSlime, state.rightSlime].forEach((slime, idx) => {
+                    const charId = idx === 0 ? aiCharId : playerCharId;
+                    const slimeRadius = getSlimeRadius(charId);
+                    slime.vy += GRAVITY;
+                    slime.x += slime.vx;
+                    slime.y += slime.vy;
+                    if (slime.x < slimeRadius) slime.x = slimeRadius;
+                    if (slime.x > GAME_WIDTH - slimeRadius) slime.x = GAME_WIDTH - slimeRadius;
+                    // 地面判定（半円中心基準）
+                    if (slime.y + slimeRadius > groundY) {
+                        slime.y = groundY - slimeRadius;
+                        slime.vy = 0;
+                    }
+                });
+                // ボール物理・当たり判定も半円中心基準
+                if (state.ball.grabbedBy) {
+                    // ...（グラブ機能は削除済みなので省略）...
+                } else {
+                    state.ball.vy += GRAVITY;
+                    state.ball.vx *= BALL_DAMPING;
+                    state.ball.x += state.ball.vx;
+                    state.ball.y += state.ball.vy;
                 }
-                // 壁衝突
-                if (state.ball.x - BALL_RADIUS < 0) {
+                if (state.ball.x < BALL_RADIUS) {
                     state.ball.x = BALL_RADIUS;
                     state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
                 }
-                if (state.ball.x + BALL_RADIUS > GAME_WIDTH) {
+                if (state.ball.x > GAME_WIDTH - BALL_RADIUS) {
                     state.ball.x = GAME_WIDTH - BALL_RADIUS;
                     state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
                 }
-                // 天井バウンス (オプション)
-                if (state.ball.y - BALL_RADIUS < 0) {
+                if (state.ball.y > groundY - BALL_RADIUS) {
+                    state.ball.y = groundY - BALL_RADIUS;
+                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                }
+                if (state.ball.y < BALL_RADIUS) {
                     state.ball.y = BALL_RADIUS;
                     state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
                 }
-            }
-    
-            // スライムとボールの衝突 (簡易版: 距離チェックでボール速度変更)
-            const checkCollision = (slime, radius) => {
-                const dx = state.ball.x - slime.x;
-                const dy = state.ball.y - slime.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < radius + BALL_RADIUS) {
-                    const angle = Math.atan2(dy, dx);
-                    state.ball.vx = Math.cos(angle) * 10; // 跳ね返り
-                    state.ball.vy = Math.sin(angle) * 10;
-                }
-            };
-            checkCollision(state.leftSlime, leftRadius);
-            checkCollision(state.rightSlime, rightRadius);
-    
-            // ゴール判定 (左ゴール: 右チーム得点, 右ゴール: 左チーム得点)
-            if (state.ball.x < GOAL_WIDTH && state.ball.y > groundY - GOAL_HEIGHT) {
-                setScore(prev => ({ ...prev, right: prev.right + 1 }));
-                resetPositions();
-            } else if (state.ball.x > GAME_WIDTH - GOAL_WIDTH && state.ball.y > groundY - GOAL_HEIGHT) {
-                setScore(prev => ({ ...prev, left: prev.left + 1 }));
-                resetPositions();
-            }
-    
-            // 最大速度制限
-            const ballSpeed = Math.sqrt(state.ball.vx ** 2 + state.ball.vy ** 2);
-            if (ballSpeed > MAX_BALL_SPEED) {
-                const factor = MAX_BALL_SPEED / ballSpeed;
-                state.ball.vx *= factor;
-                state.ball.vy *= factor;
-            }
-        }, [playerCharId, aiCharId]);
-    
-        // ゲームループ (修正: 追加)
-        useEffect(() => {
-            if (step === 4 && gameStarted && canvasRef.current) {
-                resetPositions();
-                const ctx = canvasRef.current.getContext('2d');
-                lastFrameTimeRef.current = performance.now();
-                const loop = (currentTime) => {
-                    if (!gameStarted) return;
-                    const delta = currentTime - lastFrameTimeRef.current;
-                    if (delta > 16) { // フレームレートキャップ
-                        updateAI(currentTime);
-                        updatePhysics(delta);
-                        draw(ctx);
-                        lastFrameTimeRef.current = currentTime - (delta % 16);
+                [state.leftSlime, state.rightSlime].forEach((slime, idx) => {
+                    const charId = idx === 0 ? aiCharId : playerCharId;
+                    const slimeRadius = getSlimeRadius(charId);
+                    // スライムの中心座標 = (slime.x, slime.y)
+                    const slimeCx = slime.x;
+                    const slimeCy = slime.y;
+                    const dx = state.ball.x - slimeCx;
+                    const dy = state.ball.y - slimeCy;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < slimeRadius + BALL_RADIUS) {
+                        const angle = Math.atan2(dy, dx);
+                        const targetX = slimeCx + Math.cos(angle) * (slimeRadius + BALL_RADIUS);
+                        const targetY = slimeCy + Math.sin(angle) * (slimeRadius + BALL_RADIUS);
+                        state.ball.x = targetX;
+                        state.ball.y = targetY;
+                        const speed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
+                        state.ball.vx = Math.cos(angle) * speed * 1.5 + slime.vx * 0.5;
+                        state.ball.vy = Math.sin(angle) * speed * 1.5 + slime.vy * 0.5;
+                        const newSpeed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
+                        if (newSpeed > MAX_BALL_SPEED) {
+                            const scale = MAX_BALL_SPEED / newSpeed;
+                            state.ball.vx *= scale;
+                            state.ball.vy *= scale;
+                        }
                     }
-                    animationRef.current = requestAnimationFrame(loop);
-                };
-                animationRef.current = requestAnimationFrame(loop);
-                return () => cancelAnimationFrame(animationRef.current);
-            }
-        }, [gameStarted, step, updateAI, updatePhysics]);
-    
-        // 描画関数 (修正: ジョイスティックとフィールド描画追加)
-        const draw = (ctx) => {
-            const state = gameStateRef.current;
-            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-    
-            // フィールド描画
-            ctx.fillStyle = '#0066ff';
-            ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-            ctx.fillStyle = '#00ff00';
-            ctx.fillRect(0, groundY, GAME_WIDTH, GROUND_HEIGHT);
-    
-            // ゴール描画
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, groundY - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
-            ctx.fillRect(GAME_WIDTH - GOAL_WIDTH, groundY - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
-    
-            // スライム描画
-            const drawSlime = (slime, charId) => {
-                const stats = getCharStats(charId);
-                const radius = getSlimeRadius(charId);
-                ctx.fillStyle = stats.color;
+                });
+                // Goal detection
+                if (state.ball.x <= BALL_RADIUS && state.ball.y > groundY - GOAL_HEIGHT) {
+                    setScore(prev => ({ ...prev, right: prev.right + 1 }));
+                    resetPositions();
+                } else if (state.ball.x >= GAME_WIDTH - BALL_RADIUS && state.ball.y > groundY - GOAL_HEIGHT) {
+                    setScore(prev => ({ ...prev, left: prev.left + 1 }));
+                    resetPositions();
+                }
+                // Ceiling collision
+                if (state.ball.y < BALL_RADIUS) {
+                    state.ball.y = BALL_RADIUS;
+                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                }
+            }, [playerCharId, aiCharId, updateAI]);
+            
+            // draw: 描画・当たり判定も足元基準
+            const draw = useCallback(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const state = gameStateRef.current;
+                ctx.fillStyle = '#0000FF';
+                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+                ctx.fillStyle = '#808080';
+                ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
+                // --- ゴールエリア色分け ---
+                ctx.save();
+                // 左ゴール（青）
+                ctx.globalAlpha = 0.25;
+                ctx.fillStyle = '#00BFFF';
+                ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
+                // 右ゴール（赤）
+                ctx.fillStyle = '#FF6347';
+                ctx.fillRect(GAME_WIDTH - GOAL_WIDTH, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
+                ctx.globalAlpha = 1.0;
+                ctx.restore();
+                // --- 既存のゴール枠線 ---
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 3;
+                // 左ゴール
                 ctx.beginPath();
-                ctx.arc(slime.x, slime.y, radius, 0, 2 * Math.PI);
-                ctx.fill();
-                ctx.fillStyle = '#000';
-                ctx.font = '12px Arial';
-                ctx.fillText(stats.name, slime.x - 20, slime.y - radius - 5);
-            };
-            drawSlime(state.leftSlime, aiCharId);
-            drawSlime(state.rightSlime, playerCharId);
-    
-            // ボール描画
-            ctx.fillStyle = '#ff0000';
-            ctx.beginPath();
-            ctx.arc(state.ball.x, state.ball.y, BALL_RADIUS, 0, 2 * Math.PI);
-            ctx.fill();
-    
-            // ジョイスティック描画
-            if (joystickRef.current.active) {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                ctx.lineWidth = 2;
-                ctx.beginPath();
-                ctx.arc(joystickRef.current.centerX, joystickRef.current.centerY, joystickRef.current.radius, 0, 2 * Math.PI);
+                ctx.moveTo(0, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GOAL_WIDTH, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.moveTo(GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT);
                 ctx.stroke();
-                ctx.fillStyle = 'rgba(0, 102, 255, 0.8)';
+                // 右ゴール
                 ctx.beginPath();
-                ctx.arc(joystickRef.current.currentX, joystickRef.current.currentY, 20, 0, 2 * Math.PI);
+                ctx.moveTo(GAME_WIDTH - GOAL_WIDTH, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GAME_WIDTH, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.moveTo(GAME_WIDTH - GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GAME_WIDTH - GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT);
+                ctx.stroke();
+                // スライム描画
+                const drawSlime = (slime, charId, isAI) => {
+                    const stats = getCharStats(charId);
+                    // 半円の物理判定用パラメータ
+                    const slimeRadius = getSlimeRadius(charId);
+                    // --- 透明な半円（当たり判定用、見た目には表示しない）---
+                    ctx.save();
+                    ctx.globalAlpha = 0; // 完全に透明
+                    ctx.beginPath();
+                    ctx.arc(slime.x, slime.y, slimeRadius, Math.PI, 0); // yをslime.yに修正
+                    ctx.closePath();
+                    ctx.fillStyle = stats.color;
+                    ctx.fill();
+                    ctx.restore();
+                    // --- キャラ画像の下端中央を地面に揃えて描画 ---
+                    const img = new window.Image();
+                    img.src = `images/${charId}.png`;
+                    // 画像が未ロードの場合はonloadで再描画（ループ防止のためstate管理推奨だが簡易的に）
+                    if (!img.complete) {
+                        img.onload = () => draw();
+                    }
+                    // 画像サイズ取得
+                    const scale = 0.5; // 画像を半分に縮小
+                    const imgWidth = (img.width || 300) * scale;
+                    const imgHeight = (img.height || 300) * scale;
+                    const imageY = (slime.y + slimeRadius) - imgHeight;
+                    ctx.drawImage(
+                        img,
+                        slime.x - imgWidth / 2,
+                        imageY,
+                        imgWidth,
+                        imgHeight
+                    );
+                    // --- キャラ名・emojiも画像の上に連動 ---
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = isAI ? '#FFD700' : '#fff';
+                    ctx.fillText(`${stats.emoji} ${stats.name}`, slime.x, imageY - 10);
+                };
+                drawSlime(state.leftSlime, aiCharId, true);
+                drawSlime(state.rightSlime, playerCharId, false);
+                // ボール
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(state.ball.x, state.ball.y, BALL_RADIUS, 0, Math.PI * 2);
                 ctx.fill();
-            }
-        };
-    
-        // 時間フォーマット
-        const formatTime = (time) => {
-            const minutes = Math.floor(time / 60);
-            const seconds = time % 60;
-            return `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-        };
-    
-        // AIキャラクターのランダム選択 (追加)
-        const selectRandomAi = () => {
-            const keys = Object.keys(CHARACTER_STATS);
-            const randomKey = keys[Math.floor(Math.random() * keys.length)];
-            setAiCharId(randomKey);
-        };
-    
-        return (
-            <div className="game-container">
-                {step === 0 && (
-                    <div className="menu-container">
-                        <h1>じゃがりんスライムサッカー</h1>
-                        <div className="menu-buttons">
-                            <button className="menu-btn" onClick={() => setStep(1)}>シングルプレイ開始</button>
-                        </div>
-                    </div>
-                )}
-                {step === 1 && ( // キャラクター選択
-                    <div className="menu-container">
-                        <h1>キャラクターを選択</h1>
-                        <div className="character-grid-scroll">
-                            <div className="character-grid">
-                                {Object.entries(CHARACTER_STATS).map(([id, stats]) => (
+                // ジョイスティック描画
+                if (joystickRef.current.active) {
+                    // 外円
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(joystickRef.current.centerX, joystickRef.current.centerY, joystickRef.current.radius, 0, 2 * Math.PI);
+                    ctx.stroke();
+                    // 内スティック
+                    ctx.fillStyle = 'rgba(0, 102, 255, 0.8)';
+                    ctx.beginPath();
+                    ctx.arc(joystickRef.current.currentX, joystickRef.current.currentY, 20, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+            }, [playerCharId, aiCharId]);
+            
+            // ゲームループでupdatePhysics, drawにcurrentTimeを渡す
+            const gameLoop = useCallback((currentTime) => {
+                if (gameStarted) {
+                    const targetFrameTime = 1000 / 60;
+                    if (currentTime - lastFrameTimeRef.current >= targetFrameTime) {
+                        updatePhysics(currentTime);
+                        draw();
+                        lastFrameTimeRef.current = currentTime;
+                    }
+                    animationRef.current = requestAnimationFrame(gameLoop);
+                }
+            }, [gameStarted, updatePhysics, draw]);
+            
+            useEffect(() => {
+                if (gameStarted) {
+                    animationRef.current = requestAnimationFrame(gameLoop);
+                }
+                
+                return () => {
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [gameStarted, gameLoop]);
+            
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+            
+            return (
+                <div className="game-container">
+                    {/* キャラクター選択画面 */}
+                    {step === 0 && (
+                        <div className="menu-container">
+                            <h1>じゃがりんスライムサッカー</h1>
+                            <h2>キャラクターを選んでください</h2>
+                            <div className="character-grid-scroll" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(5, 1fr)',
+                                gap: '18px',
+                                justifyItems: 'center',
+                                maxWidth: 600
+                            }}>
+                                {Object.entries(CHARACTER_STATS).map(([id, char]) => (
                                     <div
                                         key={id}
-                                        className={`character-card ${selectedCharacter === id ? 'selected' : ''}`}
+                                        style={{
+                                            border: selectedCharacter === id ? '4px solid #FFD700' : '2px solid #333',
+                                            borderRadius: 12,
+                                            background: selectedCharacter === id ? '#fffbe6' : '#222',
+                                            padding: 8,
+                                            cursor: 'pointer',
+                                            boxShadow: selectedCharacter === id ? '0 0 12px #FFD700' : 'none',
+                                            transition: 'all 0.2s',
+                                            width: 90,
+                                            textAlign: 'center'
+                                        }}
                                         onClick={() => setSelectedCharacter(id)}
                                     >
-                                        <img src={`images/${id}.png`} alt={stats.name} />
-                                        <p>{stats.name}</p>
-                                        <p>速度: {stats.speed}</p>
-                                        <p>ジャンプ: {stats.jump}</p>
+                                        <img
+                                            src={`images/${id}.png`}
+                                            alt={char.name}
+                                            style={{ width: 64, height: 64, borderRadius: 8, background: '#fff' }}
+                                        />
+                                        <div style={{ fontWeight: 'bold', marginTop: 4 }}>{char.emoji} {char.name}</div>
                                     </div>
                                 ))}
                             </div>
+                            <div className="character-select-bottom">
+                                {selectedCharacter && (
+                                    <div style={{
+                                        background: '#222',
+                                        borderRadius: 12,
+                                        padding: 16,
+                                        margin: '0 auto 20px',
+                                        maxWidth: 340,
+                                        color: '#fff',
+                                        boxShadow: '0 2px 8px #0008'
+                                    }}>
+                                        <div style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 6 }}>
+                                            {CHARACTER_STATS[selectedCharacter].emoji} {CHARACTER_STATS[selectedCharacter].name}
+                                        </div>
+                                        <div style={{ fontSize: 15, marginBottom: 6 }}>
+                                            <span style={{ color: '#FFD700' }}>特技：</span>{CHARACTER_STATS[selectedCharacter].specialty}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 12, fontSize: 14, justifyContent: 'center' }}>
+                                            <span>スピード: {CHARACTER_STATS[selectedCharacter].speed}</span>
+                                            <span>ジャンプ: {CHARACTER_STATS[selectedCharacter].jump}</span>
+                                            <span>サイズ: {CHARACTER_STATS[selectedCharacter].size}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                <button
+                                    className="menu-btn"
+                                    style={{ marginTop: 10, background: selectedCharacter ? '#0066ff' : '#888', cursor: selectedCharacter ? 'pointer' : 'not-allowed' }}
+                                    disabled={!selectedCharacter}
+                                    onClick={() => {
+                                        if (!selectedCharacter) return;
+                                        setPlayerCharId(selectedCharacter);
+                                        // AIキャラを未選択キャラからランダムで決定
+                                        const aiCandidates = Object.keys(CHARACTER_STATS).filter(id => id !== selectedCharacter);
+                                        setAiCharId(aiCandidates[Math.floor(Math.random() * aiCandidates.length)]);
+                                        setStep(1); // 難易度選択へ
+                                    }}
+                                >
+                                    このキャラで決定！
+                                </button>
+                            </div>
                         </div>
-                        <div className="character-select-bottom">
-                            <button className="menu-btn" disabled={!selectedCharacter} onClick={() => {
-                                setPlayerCharId(selectedCharacter);
-                                selectRandomAi();
-                                setStep(2);
-                            }}>次へ</button>
+                    )}
+                    
+                    {/* 難易度選択画面 */}
+                    {step === 1 && (
+                        <div className="menu-container">
+                            <h2>AIの難易度を選んでください</h2>
+                            <div className="menu-buttons">
+                                <button
+                                    className="menu-btn"
+                                    onClick={() => {
+                                        window.aiDifficulty = { label: 'かんたん', delay: 500 };
+                                        setStep(2);
+                                    }}
+                                >
+                                    かんたん<br /><span style={{ fontSize: 13, color: '#FFD700' }}>（反応遅め）</span>
+                                </button>
+                                <button
+                                    className="menu-btn"
+                                    onClick={() => {
+                                        window.aiDifficulty = { label: 'ふつう', delay: 200 };
+                                        setStep(2);
+                                    }}
+                                >
+                                    ふつう<br /><span style={{ fontSize: 13, color: '#00CED1' }}>（標準）</span>
+                                </button>
+                                <button
+                                    className="menu-btn"
+                                    onClick={() => {
+                                        window.aiDifficulty = { label: 'むずかしい', delay: 0 };
+                                        setStep(2);
+                                    }}
+                                >
+                                    むずかしい<br /><span style={{ fontSize: 13, color: '#DC143C' }}>（即時反応）</span>
+                                </button>
+                            </div>
+                            <button
+                                className="menu-btn"
+                                style={{ marginTop: 20, background: '#666' }}
+                                onClick={() => setStep(0)}
+                            >
+                                キャラ選択に戻る
+                            </button>
                         </div>
-                    </div>
-                )}
-                {step === 2 && ( // 難易度選択
-                    <div className="menu-container">
-                        <h1>難易度を選択</h1>
-                        <div className="menu-buttons">
-                            <button className="menu-btn" onClick={() => { setAiDifficulty({ delay: 300 }); setStep(3); }}>簡単</button>
-                            <button className="menu-btn" onClick={() => { setAiDifficulty({ delay: 150 }); setStep(3); }}>普通</button>
-                            <button className="menu-btn" onClick={() => { setAiDifficulty({ delay: 50 }); setStep(3); }}>難しい</button>
+                    )}
+                    
+                    {/* 試合時間選択画面 */}
+                    {step === 2 && (
+                        <div className="menu-container">
+                            <h2>試合時間を選んでください</h2>
+                            <div className="game-info">
+                                <span style={{ color: CHARACTER_STATS[playerCharId]?.color, fontWeight: 'bold' }}>
+                                    {CHARACTER_STATS[playerCharId]?.emoji} {CHARACTER_STATS[playerCharId]?.name}
+                                </span>
+                                <span> vs </span>
+                                <span style={{ color: CHARACTER_STATS[aiCharId]?.color, fontWeight: 'bold' }}>
+                                    {CHARACTER_STATS[aiCharId]?.emoji} {CHARACTER_STATS[aiCharId]?.name}
+                                </span>
+                            </div>
+                            <div className="menu-buttons">
+                                <button className="menu-btn" onClick={() => { setGameMode('1min'); setTimeLeft(60); setStep(3); setGameStarted(true); resetGame(); }}>1分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('2min'); setTimeLeft(120); setStep(3); setGameStarted(true); resetGame(); }}>2分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('4min'); setTimeLeft(240); setStep(3); setGameStarted(true); resetGame(); }}>4分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('8min'); setTimeLeft(480); setStep(3); setGameStarted(true); resetGame(); }}>8分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('worldcup'); setTimeLeft(300); setStep(3); setGameStarted(true); resetGame(); }}>ワールドカップ</button>
+                            </div>
+                            <button
+                                className="menu-btn"
+                                style={{ marginTop: 20, background: '#666' }}
+                                onClick={() => setStep(1)}
+                            >
+                                難易度選択に戻る
+                            </button>
                         </div>
-                    </div>
-                )}
-                {step === 3 && ( // 試合時間選択
-                    <div className="menu-container">
-                        <h1>試合時間を選択</h1>
-                        <div className="menu-buttons">
-                            <button className="menu-btn" onClick={() => { setTimeLeft(60); setGameStarted(true); setStep(4); }}>1分</button>
-                            <button className="menu-btn" onClick={() => { setTimeLeft(180); setGameStarted(true); setStep(4); }}>3分</button>
-                            <button className="menu-btn" onClick={() => { setTimeLeft(300); setGameStarted(true); setStep(4); }}>5分</button>
-                        </div>
-                    </div>
-                )}
-                {step === 4 && gameStarted && (
-                    <>
-                        <div className="score-display">
-                            <span>青チーム: {score.left}</span>
-                            <span>{formatTime(timeLeft)}</span>
-                            <span>赤チーム: {score.right}</span>
-                        </div>
-                        <canvas ref={canvasRef} width={GAME_WIDTH} height={GAME_HEIGHT} />
-                    </>
-                )}
-                {winner && (
-                    <div className="game-info">
-                        <h2>{winner}の勝ち！</h2>
-                        <button className="menu-btn" onClick={() => { resetGame(); setStep(0); }}>メニューに戻る</button>
-                    </div>
-                )}
-            </div>
-        );
-    };
-    
-    ReactDOM.render(<SlimeSoccerMobile />, document.getElementById('root'));
-</script>
+                    )}
+                    
+                    {(gameStarted || winner) && (
+                        <>
+                            <div className="score-display">
+                                <span>青チーム: {score.left}</span>
+                                <span>{formatTime(timeLeft)}</span>
+                                <span>{score.right} : 赤チーム</span>
+                            </div>
+                            
+                            <canvas
+                                ref={canvasRef}
+                                width={GAME_WIDTH}
+                                height={GAME_HEIGHT}
+                            />
+                            
+                            {/* ボタンなし、コントロールはスワイプ/タップ専用 */}
+
+                            {winner && (
+                                <div className="menu-container" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px' }}>
+                                    <h2 style={{ fontSize: '2rem', marginBottom: '20px' }}>
+                                        {winner === '引き分け' ? '引き分け！' : `${winner}の勝利！`}
+                                    </h2>
+                                    <button
+                                        onClick={() => {
+                                            setStep(0);
+                                            setGameStarted(false);
+                                            setGameMode(null);
+                                            setPlayerCharId(null);
+                                            setAiCharId(null);
+                                            setWinner(null);
+                                            setScore({ left: 0, right: 0 });
+                                            setTimeLeft(0);
+                                        }}
+                                        className="menu-btn"
+                                    >
+                                        メニューに戻る
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            );
+        };
+        
+        ReactDOM.render(<SlimeSoccerMobile />, document.getElementById('root'));
+    </script>
 </body>
 </html>
