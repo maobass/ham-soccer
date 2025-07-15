@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Slime Soccer Mobile</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            font-family: 'Arial', sans-serif;
+            background: #1a1a2e;
+            color: white;
+            min-height: 100vh;
+            touch-action: manipulation;
+            overflow-y: auto;
+        }
+        
+        #root {
+            width: 100vw;
+            min-height: 100vh;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+        
+        .game-container {
+            width: 100%;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+        .character-grid-scroll {
+            max-height: 60vh;
+            overflow-y: auto;
+            margin: 30px auto 0 auto;
+            width: 100%;
+        }
+
+        .character-select-bottom {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: sticky;
+            bottom: 0;
+            background: #1a1a2e;
+            padding-bottom: 24px;
+            z-index: 10;
+        }
+
+        canvas {
+            max-width: 100vw;
+            max-height: 60vh;
+            border: 2px solid #333;
+            background: #0066ff;
+        }
+        
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: 3px solid #fff;
+            background: rgba(0, 102, 255, 0.8);
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+            user-select: none;
+        }
+        
+        .control-btn:active {
+            background: rgba(0, 102, 255, 1);
+            transform: scale(0.95);
+        }
+        
+        .direction-controls {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .menu-btn {
+            padding: 12px 24px;
+            margin: 10px;
+            background: #0066ff;
+            color: white;
+            border: 2px solid #333;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        
+        .menu-btn:active {
+            background: #0052cc;
+            transform: scale(0.95);
+        }
+        
+        .score-display {
+            background: #0066ff;
+            padding: 15px 30px;
+            border-radius: 8px 8px 0 0;
+            width: 100%;
+            max-width: 800px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .game-info {
+            text-align: center;
+            margin: 20px;
+        }
+        
+        .menu-container {
+            text-align: center;
+            padding: 20px;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 20px;
+            color: #fff;
+        }
+        
+        .menu-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        @media (orientation: landscape) {
+            canvas {
+                max-height: 70vh;
+            }
+            
+            .controls {
+                bottom: 10px;
+            }
+            
+            .control-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 16px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .score-display {
+                font-size: 16px;
+                padding: 10px 20px;
+            }
+            
+            .control-btn {
+                width: 55px;
+                height: 55px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useCallback } = React;
+        
+        // Game constants
+        const GAME_WIDTH = 800;
+        const GAME_HEIGHT = 400;
+        const GROUND_HEIGHT = 80;
+        const SLIME_RADIUS = 40;
+        const BALL_RADIUS = 10;
+        const GOAL_WIDTH = 80;
+        const GOAL_HEIGHT = 120;
+        const GRAVITY = 0.6;
+        const SLIME_SPEED = 5;
+        const SLIME_JUMP_POWER = -12;
+        const BALL_DAMPING = 0.99;
+        const BALL_BOUNCE_DAMPING = 0.8;
+        const MAX_BALL_SPEED = 13;
+        
+        /**
+         * キャラクター情報（画像ファイル名は images/001.png ～ images/029.png）
+         */
+        const CHARACTER_STATS = {
+          '001': { name: "じゃが", speed: 1.2, jump: 1.1, size: 1.0, color: "#D4AF37", specialty: "リーダーシップ", emoji: "👑" },
+          '002': { name: "さくら", speed: 1.0, jump: 1.0, size: 0.9, color: "#FFB6C1", specialty: "動物と会話", emoji: "🌸" },
+          '003': { name: "プリン", speed: 0.8, jump: 0.9, size: 1.1, color: "#F5DEB3", specialty: "法律相談", emoji: "📚" },
+          '004': { name: "かぷちーも", speed: 1.1, jump: 1.0, size: 1.0, color: "#DEB887", specialty: "料理", emoji: "👨‍🍳" },
+          '005': { name: "ハム娘", speed: 0.9, jump: 1.0, size: 0.9, color: "#FF69B4", specialty: "医療", emoji: "💊" },
+          '006': { name: "くべし", speed: 1.3, jump: 1.2, size: 1.0, color: "#32CD32", specialty: "冒険", emoji: "🗡️" },
+          '007': { name: "リョータ", speed: 1.2, jump: 1.3, size: 1.1, color: "#87CEEB", specialty: "スポーツ", emoji: "⚽" },
+          '008': { name: "ハムまろ", speed: 0.8, jump: 0.9, size: 1.0, color: "#F0F8FF", specialty: "戦略", emoji: "🧠" },
+          '009': { name: "リーゼント丸", speed: 1.0, jump: 1.0, size: 1.0, color: "#90EE90", specialty: "集計", emoji: "📊" },
+          '010': { name: "もみじ", speed: 1.0, jump: 1.1, size: 0.9, color: "#FF6347", specialty: "カウンセリング", emoji: "🍁" },
+          '011': { name: "アクア", speed: 1.1, jump: 1.2, size: 1.0, color: "#00CED1", specialty: "エンジニア", emoji: "⚙️" },
+          '012': { name: "うずら", speed: 0.9, jump: 1.0, size: 1.0, color: "#DDA0DD", specialty: "プロマネ", emoji: "📋" },
+          '013': { name: "すいめい", speed: 1.1, jump: 1.4, size: 0.9, color: "#B0E0E6", specialty: "忍術", emoji: "🥷" },
+          '014': { name: "ハムりん", speed: 1.3, jump: 1.0, size: 0.8, color: "#FFD700", specialty: "ギャンブル", emoji: "🎲" },
+          '015': { name: "ラッキー", speed: 1.0, jump: 1.1, size: 1.0, color: "#DA70D6", specialty: "金庫番", emoji: "💰" },
+          '016': { name: "なないろ", speed: 1.2, jump: 1.3, size: 0.8, color: "#9370DB", specialty: "発明", emoji: "🔬" },
+          '017': { name: "くり坊", speed: 0.9, jump: 1.1, size: 1.2, color: "#8B4513", specialty: "格闘技", emoji: "👊" },
+          '018': { name: "みたらし", speed: 1.1, jump: 1.0, size: 1.0, color: "#CD853F", specialty: "何でも屋", emoji: "🛠️" },
+          '019': { name: "タンゴ", speed: 1.0, jump: 1.2, size: 1.0, color: "#2F4F4F", specialty: "ツッコミ", emoji: "😤" },
+          '020': { name: "ついてる", speed: 1.1, jump: 1.1, size: 0.9, color: "#F0E68C", specialty: "エンタメ", emoji: "🎭" },
+          '021': { name: "バク", speed: 1.2, jump: 1.4, size: 0.9, color: "#4169E1", specialty: "サイキック", emoji: "🔮" },
+          '022': { name: "このは", speed: 1.1, jump: 1.0, size: 1.0, color: "#228B22", specialty: "人生相談", emoji: "🌻" },
+          '023': { name: "たいあん", speed: 1.4, jump: 1.1, size: 1.1, color: "#FF4500", specialty: "運転", emoji: "🏎️" },
+          '024': { name: "ハムレット", speed: 1.2, jump: 1.2, size: 1.0, color: "#483D8B", specialty: "ヒーロー", emoji: "🦸" },
+          '025': { name: "クリオネア", speed: 1.3, jump: 1.0, size: 0.8, color: "#87CEFA", specialty: "宴会部長", emoji: "🎉" },
+          '026': { name: "むらむすめ", speed: 1.2, jump: 1.1, size: 1.0, color: "#FF1493", specialty: "ギャル", emoji: "💅" },
+          '027': { name: "あんみつ姫", speed: 0.9, jump: 1.0, size: 1.0, color: "#DDA0DD", specialty: "お嬢様", emoji: "👸" },
+          '028': { name: "べにたん", speed: 1.0, jump: 1.1, size: 1.0, color: "#DC143C", specialty: "芸術家", emoji: "🎨" },
+          '029': { name: "もなちゃん", speed: 1.0, jump: 1.2, size: 0.9, color: "#708090", specialty: "星占い", emoji: "⭐" }
+        };
+        
+        const SlimeSoccerMobile = () => {
+            const canvasRef = useRef(null);
+            const animationRef = useRef(null);
+            const lastFrameTimeRef = useRef(0);
+            
+            // Game state
+            const [gameMode, setGameMode] = useState(null);
+            const [playerMode, setPlayerMode] = useState(null);
+            const [timeLeft, setTimeLeft] = useState(0);
+            const [score, setScore] = useState({ left: 0, right: 0 });
+            const [gameStarted, setGameStarted] = useState(false);
+            const [winner, setWinner] = useState(null);
+            
+            // Game objects state
+            const gameStateRef = useRef({
+                leftSlime: {
+                    x: 200,
+                    y: GAME_HEIGHT - GROUND_HEIGHT,
+                    vx: 0,
+                    vy: 0,
+                    isGrabbing: false,
+                    hasBall: false,
+                    goalLineTime: 0,
+                    targetX: 200,
+                    lastDecisionTime: 0,
+                    decisionCooldown: 0,
+                    stableStart: true
+                },
+                rightSlime: {
+                    x: 600,
+                    y: GAME_HEIGHT - GROUND_HEIGHT,
+                    vx: 0,
+                    vy: 0,
+                    isGrabbing: false,
+                    hasBall: false,
+                    goalLineTime: 0
+                },
+                ball: {
+                    x: GAME_WIDTH / 2,
+                    y: 150,
+                    vx: 0,
+                    vy: 0,
+                    grabbedBy: null,
+                    grabAngle: 0,
+                    grabAngularVelocity: 0
+                }
+            });
+            
+            // SlimeSoccerMobileのstateにplayerCharId, aiCharId, step（画面遷移用）を追加
+            const [playerCharId, setPlayerCharId] = useState(null);
+            const [aiCharId, setAiCharId] = useState(null);
+            const [step, setStep] = useState(0); // 0: メニュー, 1: キャラ選択, 2: 試合時間選択, 3: ゲーム
+            
+            // キャラクター選択画面のUIを追加
+            const [selectedCharacter, setSelectedCharacter] = useState(null);
+            const [characterGrid, setCharacterGrid] = useState([]);
+            const [isCharacterGridVisible, setIsCharacterGridVisible] = useState(false);
+
+            // Timer
+            useEffect(() => {
+                if (gameStarted && timeLeft > 0) {
+                    const timer = setInterval(() => {
+                        setTimeLeft(prev => {
+                            if (prev <= 1) {
+                                setGameStarted(false);
+                                determineWinner();
+                                return 0;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+                    
+                    return () => clearInterval(timer);
+                }
+            }, [gameStarted, timeLeft]);
+            
+            const determineWinner = () => {
+                if (score.left > score.right) {
+                    setWinner('青チーム');
+                } else if (score.right > score.left) {
+                    setWinner('赤チーム');
+                } else {
+                    setWinner('引き分け');
+                }
+            };
+            
+            // スライム初期化・リセット時のy座標を「足元基準」に
+            const resetPositions = () => {
+                const state = gameStateRef.current;
+                state.leftSlime.x = 200;
+                state.leftSlime.y = GAME_HEIGHT - GROUND_HEIGHT; // 足元y座標
+                state.leftSlime.vx = 0;
+                state.leftSlime.vy = 0;
+                state.leftSlime.goalLineTime = 0;
+                state.leftSlime.targetX = 200;
+                state.leftSlime.lastDecisionTime = 0;
+                state.leftSlime.decisionCooldown = 0;
+                state.leftSlime.stableStart = true;
+
+                state.rightSlime.x = 600;
+                state.rightSlime.y = GAME_HEIGHT - GROUND_HEIGHT; // 足元y座標
+                state.rightSlime.vx = 0;
+                state.rightSlime.vy = 0;
+                state.rightSlime.goalLineTime = 0;
+
+                state.ball.x = GAME_WIDTH / 2;
+                state.ball.y = 150;
+                state.ball.vx = 0;
+                state.ball.vy = 0;
+                state.ball.grabbedBy = null;
+                state.ball.grabAngle = 0;
+                state.ball.grabAngularVelocity = 0;
+            };
+            
+            const resetGame = () => {
+                resetPositions();
+                setScore({ left: 0, right: 0 });
+                setWinner(null);
+            };
+            
+            const startGame = (mode) => {
+                const times = {
+                    '1min': 60,
+                    '2min': 120,
+                    '4min': 240,
+                    '8min': 480,
+                    'worldcup': 300
+                };
+                
+                resetGame();
+                setGameMode(mode);
+                setTimeLeft(times[mode]);
+                setGameStarted(true);
+            };
+            
+            // ゲーム本体のキャラ能力・AI難易度反映用ヘルパー
+            const getCharStats = (id) => CHARACTER_STATS[id] || { speed: 1, jump: 1, size: 1, color: '#888', name: '', emoji: '' };
+            
+            // AI行動タイマー
+            const aiLastUpdateRef = useRef(0);
+
+            // updateAI: AIキャラの能力値・難易度反映
+            const updateAI = useCallback((currentTime) => {
+                if (!aiCharId) return;
+                const state = gameStateRef.current;
+                const ai = state.leftSlime;
+                const ball = state.ball;
+                const stats = getCharStats(aiCharId);
+                const aiDelay = window.aiDifficulty?.delay ?? 200;
+                if (currentTime - aiLastUpdateRef.current < aiDelay) return;
+                aiLastUpdateRef.current = currentTime;
+                // AI: ボールを追いかける
+                if (ball.x < ai.x - 20) {
+                    ai.vx = -SLIME_SPEED * stats.speed;
+                } else if (ball.x > ai.x + 20) {
+                    ai.vx = SLIME_SPEED * stats.speed;
+                } else {
+                    ai.vx = 0;
+                }
+                // ジャンプ
+                if (ball.y < ai.y - 50 && Math.abs(ball.x - ai.x) < 100 && ai.vy === 0) {
+                    ai.vy = SLIME_JUMP_POWER * stats.jump;
+                }
+            }, [aiCharId]);
+
+            // スライムの地面位置計算用ヘルパー
+            const getSlimeRadius = (charId) => SLIME_RADIUS * Math.max(0.85, getCharStats(charId).size) * 1.4;
+            // 地面のY座標
+            const groundY = GAME_HEIGHT - GROUND_HEIGHT;
+
+            // --- シングルプレイ用タッチ・ボタン操作ハンドラ ---
+            // プレイヤー操作状態
+            const playerControlRef = useRef({ left: false, right: false, jump: false });
+            // キーイベント
+            useEffect(() => {
+                const down = (e) => {
+                    if (e.repeat) return;
+                    if (e.key === 'ArrowLeft') playerControlRef.current.left = true;
+                    if (e.key === 'ArrowRight') playerControlRef.current.right = true;
+                    if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = true;
+                };
+                const up = (e) => {
+                    if (e.key === 'ArrowLeft') playerControlRef.current.left = false;
+                    if (e.key === 'ArrowRight') playerControlRef.current.right = false;
+                    if (e.key === ' ' || e.key === 'ArrowUp') playerControlRef.current.jump = false;
+                };
+                window.addEventListener('keydown', down);
+                window.addEventListener('keyup', up);
+                return () => {
+                    window.removeEventListener('keydown', down);
+                    window.removeEventListener('keyup', up);
+                };
+            }, []);
+            // タッチ/マウスボタン
+            const handleTouchStart = (control) => { playerControlRef.current[control] = true; };
+            const handleTouchEnd = (control) => { playerControlRef.current[control] = false; };
+
+            // updatePhysics: 物理判定・ジャンプ・地面判定も半円中心基準
+            const updatePhysics = useCallback((currentTime) => {
+                const state = gameStateRef.current;
+                const playerStats = getCharStats(playerCharId);
+                const keys = playerControlRef.current;
+                if (keys.left) state.rightSlime.vx = -SLIME_SPEED * playerStats.speed;
+                else if (keys.right) state.rightSlime.vx = SLIME_SPEED * playerStats.speed;
+                else state.rightSlime.vx = 0;
+                // ジャンプ判定（半円中心基準）
+                const rightSlimeRadius = getSlimeRadius(playerCharId);
+                if (keys.jump && state.rightSlime.y + rightSlimeRadius >= groundY - 1) {
+                    state.rightSlime.vy = SLIME_JUMP_POWER * playerStats.jump;
+                    playerControlRef.current.jump = false; // ジャンプしたらリセット
+                }
+                updateAI(currentTime);
+                [state.leftSlime, state.rightSlime].forEach((slime, idx) => {
+                    const charId = idx === 0 ? aiCharId : playerCharId;
+                    const slimeRadius = getSlimeRadius(charId);
+                    slime.vy += GRAVITY;
+                    slime.x += slime.vx;
+                    slime.y += slime.vy;
+                    if (slime.x < slimeRadius) slime.x = slimeRadius;
+                    if (slime.x > GAME_WIDTH - slimeRadius) slime.x = GAME_WIDTH - slimeRadius;
+                    // 地面判定（半円中心基準）
+                    if (slime.y + slimeRadius > groundY) {
+                        slime.y = groundY - slimeRadius;
+                        slime.vy = 0;
+                    }
+                });
+                // ボール物理・当たり判定も半円中心基準
+                if (state.ball.grabbedBy) {
+                    // ...（グラブ機能は削除済みなので省略）...
+                } else {
+                    state.ball.vy += GRAVITY;
+                    state.ball.vx *= BALL_DAMPING;
+                    state.ball.x += state.ball.vx;
+                    state.ball.y += state.ball.vy;
+                }
+                if (state.ball.x < BALL_RADIUS) {
+                    state.ball.x = BALL_RADIUS;
+                    state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
+                }
+                if (state.ball.x > GAME_WIDTH - BALL_RADIUS) {
+                    state.ball.x = GAME_WIDTH - BALL_RADIUS;
+                    state.ball.vx = -state.ball.vx * BALL_BOUNCE_DAMPING;
+                }
+                if (state.ball.y > groundY - BALL_RADIUS) {
+                    state.ball.y = groundY - BALL_RADIUS;
+                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                }
+                if (state.ball.y < BALL_RADIUS) {
+                    state.ball.y = BALL_RADIUS;
+                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                }
+                [state.leftSlime, state.rightSlime].forEach((slime, idx) => {
+                    const charId = idx === 0 ? aiCharId : playerCharId;
+                    const slimeRadius = getSlimeRadius(charId);
+                    // スライムの中心座標 = (slime.x, slime.y)
+                    const slimeCx = slime.x;
+                    const slimeCy = slime.y;
+                    const dx = state.ball.x - slimeCx;
+                    const dy = state.ball.y - slimeCy;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    if (distance < slimeRadius + BALL_RADIUS) {
+                        const angle = Math.atan2(dy, dx);
+                        const targetX = slimeCx + Math.cos(angle) * (slimeRadius + BALL_RADIUS);
+                        const targetY = slimeCy + Math.sin(angle) * (slimeRadius + BALL_RADIUS);
+                        state.ball.x = targetX;
+                        state.ball.y = targetY;
+                        const speed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
+                        state.ball.vx = Math.cos(angle) * speed * 1.5 + slime.vx * 0.5;
+                        state.ball.vy = Math.sin(angle) * speed * 1.5 + slime.vy * 0.5;
+                        const newSpeed = Math.sqrt(state.ball.vx * state.ball.vx + state.ball.vy * state.ball.vy);
+                        if (newSpeed > MAX_BALL_SPEED) {
+                            const scale = MAX_BALL_SPEED / newSpeed;
+                            state.ball.vx *= scale;
+                            state.ball.vy *= scale;
+                        }
+                    }
+                });
+                // Goal detection
+                if (state.ball.x <= BALL_RADIUS && state.ball.y > groundY - GOAL_HEIGHT) {
+                    setScore(prev => ({ ...prev, right: prev.right + 1 }));
+                    resetPositions();
+                } else if (state.ball.x >= GAME_WIDTH - BALL_RADIUS && state.ball.y > groundY - GOAL_HEIGHT) {
+                    setScore(prev => ({ ...prev, left: prev.left + 1 }));
+                    resetPositions();
+                }
+                // Ceiling collision
+                if (state.ball.y < BALL_RADIUS) {
+                    state.ball.y = BALL_RADIUS;
+                    state.ball.vy = -state.ball.vy * BALL_BOUNCE_DAMPING;
+                }
+            }, [playerCharId, aiCharId, updateAI]);
+            
+            // draw: 描画・当たり判定も足元基準
+            const draw = useCallback(() => {
+                const canvas = canvasRef.current;
+                if (!canvas) return;
+                const ctx = canvas.getContext('2d');
+                const state = gameStateRef.current;
+                ctx.fillStyle = '#0000FF';
+                ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+                ctx.fillStyle = '#808080';
+                ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT, GAME_WIDTH, GROUND_HEIGHT);
+                // --- ゴールエリア色分け ---
+                ctx.save();
+                // 左ゴール（青）
+                ctx.globalAlpha = 0.25;
+                ctx.fillStyle = '#00BFFF';
+                ctx.fillRect(0, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
+                // 右ゴール（赤）
+                ctx.fillStyle = '#FF6347';
+                ctx.fillRect(GAME_WIDTH - GOAL_WIDTH, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT, GOAL_WIDTH, GOAL_HEIGHT);
+                ctx.globalAlpha = 1.0;
+                ctx.restore();
+                // --- 既存のゴール枠線 ---
+                ctx.strokeStyle = '#FFFFFF';
+                ctx.lineWidth = 3;
+                // 左ゴール
+                ctx.beginPath();
+                ctx.moveTo(0, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GOAL_WIDTH, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.moveTo(GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT);
+                ctx.stroke();
+                // 右ゴール
+                ctx.beginPath();
+                ctx.moveTo(GAME_WIDTH - GOAL_WIDTH, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GAME_WIDTH, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.moveTo(GAME_WIDTH - GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT);
+                ctx.lineTo(GAME_WIDTH - GOAL_WIDTH / 2, GAME_HEIGHT - GROUND_HEIGHT - GOAL_HEIGHT);
+                ctx.stroke();
+                // スライム描画
+                const drawSlime = (slime, charId, isAI) => {
+                    const stats = getCharStats(charId);
+                    // 半円の物理判定用パラメータ
+                    const slimeRadius = getSlimeRadius(charId);
+                    // 地面のY座標
+                    const groundY = GAME_HEIGHT - GROUND_HEIGHT;
+                    // --- 透明な半円（当たり判定用、見た目には表示しない）---
+                    ctx.save();
+                    ctx.globalAlpha = 0; // 完全に透明
+                    ctx.beginPath();
+                    ctx.arc(slime.x, groundY - slimeRadius, slimeRadius, Math.PI, 0);
+                    ctx.closePath();
+                    ctx.fillStyle = stats.color;
+                    ctx.fill();
+                    ctx.restore();
+                    // --- キャラ画像の下端中央を地面に揃えて描画 ---
+                    const img = new window.Image();
+                    img.src = `images/${charId}.png`;
+                    // 画像が未ロードの場合はonloadで再描画
+                    if (!img.complete) {
+                        img.onload = () => draw();
+                    }
+                    // 画像サイズ取得
+                    const scale = 0.5; // 画像を半分に縮小
+                    const imgWidth = (img.width || 300) * scale;
+                    const imgHeight = (img.height || 300) * scale;
+                    const imageY = (slime.y + slimeRadius) - imgHeight;
+                    ctx.drawImage(
+                        img,
+                        slime.x - imgWidth / 2,
+                        imageY,
+                        imgWidth,
+                        imgHeight
+                    );
+                    // --- キャラ名・emojiも画像の上に連動 ---
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = isAI ? '#FFD700' : '#fff';
+                    ctx.fillText(`${stats.emoji} ${stats.name}`, slime.x, imageY - 10);
+                };
+                drawSlime(state.leftSlime, aiCharId, true);
+                drawSlime(state.rightSlime, playerCharId, false);
+                // ボール
+                ctx.fillStyle = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(state.ball.x, state.ball.y, BALL_RADIUS, 0, Math.PI * 2);
+                ctx.fill();
+            }, [playerCharId, aiCharId]);
+            
+            // ゲームループでupdatePhysics, drawにcurrentTimeを渡す
+            const gameLoop = useCallback((currentTime) => {
+                if (gameStarted) {
+                    const targetFrameTime = 1000 / 60;
+                    if (currentTime - lastFrameTimeRef.current >= targetFrameTime) {
+                        updatePhysics(currentTime);
+                        draw();
+                        lastFrameTimeRef.current = currentTime;
+                    }
+                    animationRef.current = requestAnimationFrame(gameLoop);
+                }
+            }, [gameStarted, updatePhysics, draw]);
+            
+            useEffect(() => {
+                if (gameStarted) {
+                    animationRef.current = requestAnimationFrame(gameLoop);
+                }
+                
+                return () => {
+                    if (animationRef.current) {
+                        cancelAnimationFrame(animationRef.current);
+                    }
+                };
+            }, [gameStarted, gameLoop]);
+            
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            };
+            
+            return (
+                <div className="game-container">
+                    {/* キャラクター選択画面 */}
+                    {step === 0 && (
+                        <div className="menu-container">
+                            <h1>スライムサッカー（AI対戦専用）</h1>
+                            <h2>キャラクターを選んでください</h2>
+                            <div className="character-grid-scroll" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(5, 1fr)',
+                                gap: '18px',
+                                justifyItems: 'center',
+                                maxWidth: 600
+                            }}>
+                                {Object.entries(CHARACTER_STATS).map(([id, char]) => (
+                                    <div
+                                        key={id}
+                                        style={{
+                                            border: selectedCharacter === id ? '4px solid #FFD700' : '2px solid #333',
+                                            borderRadius: 12,
+                                            background: selectedCharacter === id ? '#fffbe6' : '#222',
+                                            padding: 8,
+                                            cursor: 'pointer',
+                                            boxShadow: selectedCharacter === id ? '0 0 12px #FFD700' : 'none',
+                                            transition: 'all 0.2s',
+                                            width: 90,
+                                            textAlign: 'center'
+                                        }}
+                                        onClick={() => setSelectedCharacter(id)}
+                                    >
+                                        <img
+                                            src={`images/${id}.png`}
+                                            alt={char.name}
+                                            style={{ width: 64, height: 64, borderRadius: 8, background: '#fff' }}
+                                        />
+                                        <div style={{ fontWeight: 'bold', marginTop: 4 }}>{char.emoji} {char.name}</div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="character-select-bottom">
+                                {selectedCharacter && (
+                                    <div style={{
+                                        background: '#222',
+                                        borderRadius: 12,
+                                        padding: 16,
+                                        margin: '0 auto 20px',
+                                        maxWidth: 340,
+                                        color: '#fff',
+                                        boxShadow: '0 2px 8px #0008'
+                                    }}>
+                                        <div style={{ fontSize: 22, fontWeight: 'bold', marginBottom: 6 }}>
+                                            {CHARACTER_STATS[selectedCharacter].emoji} {CHARACTER_STATS[selectedCharacter].name}
+                                        </div>
+                                        <div style={{ fontSize: 15, marginBottom: 6 }}>
+                                            <span style={{ color: '#FFD700' }}>特技：</span>{CHARACTER_STATS[selectedCharacter].specialty}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 12, fontSize: 14, justifyContent: 'center' }}>
+                                            <span>スピード: {CHARACTER_STATS[selectedCharacter].speed}</span>
+                                            <span>ジャンプ: {CHARACTER_STATS[selectedCharacter].jump}</span>
+                                            <span>サイズ: {CHARACTER_STATS[selectedCharacter].size}</span>
+                                        </div>
+                                    </div>
+                                )}
+                                <button
+                                    className="menu-btn"
+                                    style={{ marginTop: 10, background: selectedCharacter ? '#0066ff' : '#888', cursor: selectedCharacter ? 'pointer' : 'not-allowed' }}
+                                    disabled={!selectedCharacter}
+                                    onClick={() => {
+                                        if (!selectedCharacter) return;
+                                        setPlayerCharId(selectedCharacter);
+                                        // AIキャラを未選択キャラからランダムで決定
+                                        const aiCandidates = Object.keys(CHARACTER_STATS).filter(id => id !== selectedCharacter);
+                                        setAiCharId(aiCandidates[Math.floor(Math.random() * aiCandidates.length)]);
+                                        setStep(1); // 難易度選択へ
+                                    }}
+                                >
+                                    このキャラで決定！
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* 難易度選択画面 */}
+                    {step === 1 && (
+                        <div className="menu-container">
+                            <h2>AIの難易度を選んでください</h2>
+                            <div className="menu-buttons">
+                                <button
+                                    className="menu-btn"
+                                    onClick={() => {
+                                        window.aiDifficulty = { label: 'かんたん', delay: 500 };
+                                        setStep(2);
+                                    }}
+                                >
+                                    かんたん<br /><span style={{ fontSize: 13, color: '#FFD700' }}>（反応遅め）</span>
+                                </button>
+                                <button
+                                    className="menu-btn"
+                                    onClick={() => {
+                                        window.aiDifficulty = { label: 'ふつう', delay: 200 };
+                                        setStep(2);
+                                    }}
+                                >
+                                    ふつう<br /><span style={{ fontSize: 13, color: '#00CED1' }}>（標準）</span>
+                                </button>
+                                <button
+                                    className="menu-btn"
+                                    onClick={() => {
+                                        window.aiDifficulty = { label: 'むずかしい', delay: 0 };
+                                        setStep(2);
+                                    }}
+                                >
+                                    むずかしい<br /><span style={{ fontSize: 13, color: '#DC143C' }}>（即時反応）</span>
+                                </button>
+                            </div>
+                            <button
+                                className="menu-btn"
+                                style={{ marginTop: 20, background: '#666' }}
+                                onClick={() => setStep(0)}
+                            >
+                                キャラ選択に戻る
+                            </button>
+                        </div>
+                    )}
+                    
+                    {/* 試合時間選択画面 */}
+                    {step === 2 && (
+                        <div className="menu-container">
+                            <h2>試合時間を選んでください</h2>
+                            <div className="game-info">
+                                <span style={{ color: CHARACTER_STATS[playerCharId]?.color, fontWeight: 'bold' }}>
+                                    {CHARACTER_STATS[playerCharId]?.emoji} {CHARACTER_STATS[playerCharId]?.name}
+                                </span>
+                                <span> vs </span>
+                                <span style={{ color: CHARACTER_STATS[aiCharId]?.color, fontWeight: 'bold' }}>
+                                    {CHARACTER_STATS[aiCharId]?.emoji} {CHARACTER_STATS[aiCharId]?.name}
+                                </span>
+                            </div>
+                            <div className="menu-buttons">
+                                <button className="menu-btn" onClick={() => { setGameMode('1min'); setTimeLeft(60); setStep(3); setGameStarted(true); }}>1分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('2min'); setTimeLeft(120); setStep(3); setGameStarted(true); }}>2分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('4min'); setTimeLeft(240); setStep(3); setGameStarted(true); }}>4分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('8min'); setTimeLeft(480); setStep(3); setGameStarted(true); }}>8分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('worldcup'); setTimeLeft(300); setStep(3); setGameStarted(true); }}>ワールドカップ</button>
+                            </div>
+                            <button
+                                className="menu-btn"
+                                style={{ marginTop: 20, background: '#666' }}
+                                onClick={() => setStep(1)}
+                            >
+                                難易度選択に戻る
+                            </button>
+                        </div>
+                    )}
+                    
+                    {playerMode && !gameStarted && !gameMode && (
+                        <div className="menu-container">
+                            <h2>試合時間を選択</h2>
+                            <div className="game-info">
+                                <span style={{ color: '#00CED1' }}>青チーム</span>
+                                <span> vs </span>
+                                <span style={{ color: '#DC143C' }}>赤チーム</span>
+                            </div>
+                            <div className="menu-buttons">
+                                <button onClick={() => startGame('1min')} className="menu-btn">1分</button>
+                                <button onClick={() => startGame('2min')} className="menu-btn">2分</button>
+                                <button onClick={() => startGame('4min')} className="menu-btn">4分</button>
+                                <button onClick={() => startGame('8min')} className="menu-btn">8分</button>
+                                <button onClick={() => startGame('worldcup')} className="menu-btn">ワールドカップ</button>
+                            </div>
+                            <button
+                                onClick={() => setPlayerMode(null)}
+                                className="menu-btn"
+                                style={{ marginTop: '20px', background: '#666' }}
+                            >
+                                戻る
+                            </button>
+                        </div>
+                    )}
+                    
+                    {(gameStarted || winner) && (
+                        <>
+                            <div className="score-display">
+                                <span>青チーム: {score.left}</span>
+                                <span>{formatTime(timeLeft)}</span>
+                                <span>{score.right} : 赤チーム</span>
+                            </div>
+                            
+                            <canvas
+                                ref={canvasRef}
+                                width={GAME_WIDTH}
+                                height={GAME_HEIGHT}
+                            />
+                            
+                            {gameStarted && (
+                                <div className="controls">
+                                    <div className="control-group">
+                                        <div className="direction-controls">
+                                            <button
+                                                className="control-btn"
+                                                onTouchStart={() => handleTouchStart('left')}
+                                                onTouchEnd={() => handleTouchEnd('left')}
+                                                onMouseDown={() => handleTouchStart('left')}
+                                                onMouseUp={() => handleTouchEnd('left')}
+                                            >
+                                                ←
+                                            </button>
+                                            <button
+                                                className="control-btn"
+                                                onTouchStart={() => handleTouchStart('right')}
+                                                onTouchEnd={() => handleTouchEnd('right')}
+                                                onMouseDown={() => handleTouchStart('right')}
+                                                onMouseUp={() => handleTouchEnd('right')}
+                                            >
+                                                →
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="control-group">
+                                        <button
+                                            className="control-btn"
+                                            onTouchStart={() => handleTouchStart('jump')}
+                                            onTouchEnd={() => handleTouchEnd('jump')}
+                                            onMouseDown={() => handleTouchStart('jump')}
+                                            onMouseUp={() => handleTouchEnd('jump')}
+                                        >
+                                            ジャンプ
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {winner && (
+                                <div className="menu-container" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px' }}>
+                                    <h2 style={{ fontSize: '2rem', marginBottom: '20px' }}>
+                                        {winner === '引き分け' ? '引き分け！' : `${winner}の勝利！`}
+                                    </h2>
+                                    <button
+                                        onClick={() => {
+                                            // 全ての状態を初期化してキャラ選択画面に戻る
+                                            setStep(0);
+                                            setGameStarted(false);
+                                            setGameMode(null);
+                                            setPlayerCharId(null);
+                                            setAiCharId(null);
+                                            setWinner(null);
+                                            setScore({ left: 0, right: 0 });
+                                            setTimeLeft(0);
+                                            // 必要なら他のリセットも
+                                        }}
+                                        className="menu-btn"
+                                    >
+                                        メニューに戻る
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            );
+        };
+        
+        ReactDOM.render(<SlimeSoccerMobile />, document.getElementById('root'));
+    </script>
+</body>
+</html>
