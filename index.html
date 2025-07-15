@@ -3,6 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <!-- 全画面表示のための追加metaタグ -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>じゃがりんスライムサッカー</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -27,6 +31,11 @@
             min-height: 100vh;
             touch-action: auto; /* デフォルトでメニュー時は許可 */
             overflow-y: auto; /* デフォルトでメニュー時は許可 */
+            /* ノッチ/ダイナミックアイランド対応のためのsafe-area調整 */
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
         }
         
         #root {
@@ -744,7 +753,32 @@
                 const secs = seconds % 60;
                 return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
             };
-            
+
+            // 全画面表示をトリガーする関数 (機種ごと柔軟対応)
+            const enterFullscreen = () => {
+                const elem = document.documentElement;
+                if (elem.requestFullscreen) {
+                    elem.requestFullscreen().catch(err => console.log('Fullscreen error:', err));
+                } else if (elem.webkitRequestFullscreen) { // iOS Safari対応
+                    elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT).catch(err => console.log('Fullscreen error:', err));
+                } else if (elem.mozRequestFullScreen) {
+                    elem.mozRequestFullScreen().catch(err => console.log('Fullscreen error:', err));
+                } else if (elem.msRequestFullscreen) {
+                    elem.msRequestFullscreen().catch(err => console.log('Fullscreen error:', err));
+                }
+            };
+
+            // メニュー/ゲーム開始時に全画面をリクエスト (タップでトリガー)
+            useEffect(() => {
+                const handleTap = () => {
+                    if (!document.fullscreenElement) {
+                        enterFullscreen();
+                    }
+                };
+                document.addEventListener('touchstart', handleTap, { once: true }); // 初回タップで発動
+                return () => document.removeEventListener('touchstart', handleTap);
+            }, []);
+
             return (
                 <div className="game-container">
                     {/* キャラクター選択画面 */}
