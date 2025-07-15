@@ -25,8 +25,8 @@
             background: #1a1a2e;
             color: white;
             min-height: 100vh;
-            touch-action: none; /* スクロール防止 */
-            overflow: hidden; /* 全画面固定 */
+            touch-action: auto; /* デフォルトでメニュー時は許可 */
+            overflow-y: auto; /* デフォルトでメニュー時は許可 */
         }
         
         #root {
@@ -72,7 +72,7 @@
             max-height: 100vh;
             border: 2px solid #333;
             background: #0066ff;
-            touch-action: none; /* スクロール防止 */
+            touch-action: none;
             display: block;
         }
         
@@ -267,7 +267,6 @@
             
             // Game state
             const [gameMode, setGameMode] = useState(null);
-            const [playerMode, setPlayerMode] = useState(null);
             const [timeLeft, setTimeLeft] = useState(0);
             const [score, setScore] = useState({ left: 0, right: 0 });
             const [gameStarted, setGameStarted] = useState(false);
@@ -280,8 +279,6 @@
                     y: GAME_HEIGHT - GROUND_HEIGHT,
                     vx: 0,
                     vy: 0,
-                    isGrabbing: false,
-                    hasBall: false,
                     goalLineTime: 0,
                     targetX: 200,
                     lastDecisionTime: 0,
@@ -293,8 +290,6 @@
                     y: GAME_HEIGHT - GROUND_HEIGHT,
                     vx: 0,
                     vy: 0,
-                    isGrabbing: false,
-                    hasBall: false,
                     goalLineTime: 0
                 },
                 ball: {
@@ -311,12 +306,21 @@
             // SlimeSoccerMobileのstateにplayerCharId, aiCharId, step（画面遷移用）を追加
             const [playerCharId, setPlayerCharId] = useState(null);
             const [aiCharId, setAiCharId] = useState(null);
-            const [step, setStep] = useState(0); // 0: メニュー, 1: キャラ選択, 2: 試合時間選択, 3: ゲーム
+            const [step, setStep] = useState(0); // 0: メニュー, 1: 難易度選択, 2: 試合時間選択, 3: ゲーム
             
             // キャラクター選択画面のUIを追加
             const [selectedCharacter, setSelectedCharacter] = useState(null);
-            const [characterGrid, setCharacterGrid] = useState([]);
-            const [isCharacterGridVisible, setIsCharacterGridVisible] = useState(false);
+
+            // メニュー/ゲーム時のbodyスタイル切り替え
+            useEffect(() => {
+                if (step === 3 || gameStarted) {
+                    document.body.style.touchAction = 'none';
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    document.body.style.touchAction = 'auto';
+                    document.body.style.overflow = 'auto';
+                }
+            }, [step, gameStarted]);
 
             // Timer
             useEffect(() => {
@@ -346,11 +350,13 @@
                 }
             };
             
-            // スライム初期化・リセット時のy座標を「足元基準」に
+            // スライム初期化・リセット時のy座標を中心基準に修正
             const resetPositions = () => {
                 const state = gameStateRef.current;
+                const leftRadius = getSlimeRadius(aiCharId);
+                const rightRadius = getSlimeRadius(playerCharId);
                 state.leftSlime.x = 200;
-                state.leftSlime.y = GAME_HEIGHT - GROUND_HEIGHT; // 足元y座標
+                state.leftSlime.y = (GAME_HEIGHT - GROUND_HEIGHT) - leftRadius; // 中心y
                 state.leftSlime.vx = 0;
                 state.leftSlime.vy = 0;
                 state.leftSlime.goalLineTime = 0;
@@ -360,7 +366,7 @@
                 state.leftSlime.stableStart = true;
 
                 state.rightSlime.x = 600;
-                state.rightSlime.y = GAME_HEIGHT - GROUND_HEIGHT; // 足元y座標
+                state.rightSlime.y = (GAME_HEIGHT - GROUND_HEIGHT) - rightRadius; // 中心y
                 state.rightSlime.vx = 0;
                 state.rightSlime.vy = 0;
                 state.rightSlime.goalLineTime = 0;
@@ -378,21 +384,6 @@
                 resetPositions();
                 setScore({ left: 0, right: 0 });
                 setWinner(null);
-            };
-            
-            const startGame = (mode) => {
-                const times = {
-                    '1min': 60,
-                    '2min': 120,
-                    '4min': 240,
-                    '8min': 480,
-                    'worldcup': 300
-                };
-                
-                resetGame();
-                setGameMode(mode);
-                setTimeLeft(times[mode]);
-                setGameStarted(true);
             };
             
             // ゲーム本体のキャラ能力・AI難易度反映用ヘルパー
@@ -419,8 +410,8 @@
                 } else {
                     ai.vx = 0;
                 }
-                // ジャンプ
-                if (ball.y < ai.y - 50 && Math.abs(ball.x - ai.x) < 100 && ai.vy === 0) {
+                // ジャンプ（条件を-100に調整して過剰ジャンプ防止）
+                if (ball.y < ai.y - 100 && Math.abs(ball.x - ai.x) < 100 && ai.vy === 0) {
                     ai.vy = SLIME_JUMP_POWER * stats.jump;
                 }
             }, [aiCharId]);
@@ -493,28 +484,49 @@
                             // 右スワイプ
                             playerControlRef.current.left = false;
                             playerControlRef.current.right = true;
-                            setTimeout(() => { playerControlRef.current.right = false; }, 120);
                         } else {
                             // 左スワイプ
                             playerControlRef.current.right = false;
                             playerControlRef.current.left = true;
-                            setTimeout(() => { playerControlRef.current.left = false; }, 120);
                         }
                     } else {
                         // 縦方向優先
                         if (dy < 0) {
                             // 上スワイプ
                             playerControlRef.current.jump = true;
-                            setTimeout(() => { playerControlRef.current.jump = false; }, 120);
                         } else {
-                            // 下スワイプ（今は何もしない）
+                            // 下スワイプ（未実装: 必要なら追加）
                         }
                     }
                     swipeRef.current.active = false;
                     e.preventDefault();
                 };
-                // スクロール防止
+                // スワイプ移動中（連続制御）
                 const handleTouchMove = (e) => {
+                    if (e.touches.length !== 1 || !swipeRef.current.active) return;
+                    const touch = e.touches[0];
+                    const dx = touch.clientX - swipeRef.current.startX;
+                    const dy = touch.clientY - swipeRef.current.startY;
+                    const absDx = Math.abs(dx);
+                    const absDy = Math.abs(dy);
+                    if (absDx > absDy) {
+                        playerControlRef.current.jump = false;
+                        if (dx > 0) {
+                            playerControlRef.current.left = false;
+                            playerControlRef.current.right = true;
+                        } else {
+                            playerControlRef.current.right = false;
+                            playerControlRef.current.left = true;
+                        }
+                    } else {
+                        playerControlRef.current.left = false;
+                        playerControlRef.current.right = false;
+                        if (dy < 0) {
+                            playerControlRef.current.jump = true;
+                        } else {
+                            playerControlRef.current.jump = false;
+                        }
+                    }
                     e.preventDefault();
                 };
                 canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
@@ -665,13 +677,11 @@
                     const stats = getCharStats(charId);
                     // 半円の物理判定用パラメータ
                     const slimeRadius = getSlimeRadius(charId);
-                    // 地面のY座標
-                    const groundY = GAME_HEIGHT - GROUND_HEIGHT;
                     // --- 透明な半円（当たり判定用、見た目には表示しない）---
                     ctx.save();
                     ctx.globalAlpha = 0; // 完全に透明
                     ctx.beginPath();
-                    ctx.arc(slime.x, groundY - slimeRadius, slimeRadius, Math.PI, 0);
+                    ctx.arc(slime.x, slime.y, slimeRadius, Math.PI, 0); // yをslime.yに修正
                     ctx.closePath();
                     ctx.fillStyle = stats.color;
                     ctx.fill();
@@ -679,7 +689,7 @@
                     // --- キャラ画像の下端中央を地面に揃えて描画 ---
                     const img = new window.Image();
                     img.src = `images/${charId}.png`;
-                    // 画像が未ロードの場合はonloadで再描画
+                    // 画像が未ロードの場合はonloadで再描画（ループ防止のためstate管理推奨だが簡易的に）
                     if (!img.complete) {
                         img.onload = () => draw();
                     }
@@ -880,11 +890,11 @@
                                 </span>
                             </div>
                             <div className="menu-buttons">
-                                <button className="menu-btn" onClick={() => { setGameMode('1min'); setTimeLeft(60); setStep(3); setGameStarted(true); }}>1分</button>
-                                <button className="menu-btn" onClick={() => { setGameMode('2min'); setTimeLeft(120); setStep(3); setGameStarted(true); }}>2分</button>
-                                <button className="menu-btn" onClick={() => { setGameMode('4min'); setTimeLeft(240); setStep(3); setGameStarted(true); }}>4分</button>
-                                <button className="menu-btn" onClick={() => { setGameMode('8min'); setTimeLeft(480); setStep(3); setGameStarted(true); }}>8分</button>
-                                <button className="menu-btn" onClick={() => { setGameMode('worldcup'); setTimeLeft(300); setStep(3); setGameStarted(true); }}>ワールドカップ</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('1min'); setTimeLeft(60); setStep(3); setGameStarted(true); resetGame(); }}>1分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('2min'); setTimeLeft(120); setStep(3); setGameStarted(true); resetGame(); }}>2分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('4min'); setTimeLeft(240); setStep(3); setGameStarted(true); resetGame(); }}>4分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('8min'); setTimeLeft(480); setStep(3); setGameStarted(true); resetGame(); }}>8分</button>
+                                <button className="menu-btn" onClick={() => { setGameMode('worldcup'); setTimeLeft(300); setStep(3); setGameStarted(true); resetGame(); }}>ワールドカップ</button>
                             </div>
                             <button
                                 className="menu-btn"
@@ -892,31 +902,6 @@
                                 onClick={() => setStep(1)}
                             >
                                 難易度選択に戻る
-                            </button>
-                        </div>
-                    )}
-                    
-                    {playerMode && !gameStarted && !gameMode && (
-                        <div className="menu-container">
-                            <h2>試合時間を選択</h2>
-                            <div className="game-info">
-                                <span style={{ color: '#00CED1' }}>青チーム</span>
-                                <span> vs </span>
-                                <span style={{ color: '#DC143C' }}>赤チーム</span>
-                            </div>
-                            <div className="menu-buttons">
-                                <button onClick={() => startGame('1min')} className="menu-btn">1分</button>
-                                <button onClick={() => startGame('2min')} className="menu-btn">2分</button>
-                                <button onClick={() => startGame('4min')} className="menu-btn">4分</button>
-                                <button onClick={() => startGame('8min')} className="menu-btn">8分</button>
-                                <button onClick={() => startGame('worldcup')} className="menu-btn">ワールドカップ</button>
-                            </div>
-                            <button
-                                onClick={() => setPlayerMode(null)}
-                                className="menu-btn"
-                                style={{ marginTop: '20px', background: '#666' }}
-                            >
-                                戻る
                             </button>
                         </div>
                     )}
@@ -936,6 +921,29 @@
                             />
                             
                             {/* スワイプ操作のため、コントロールボタンは廃止 */}
+
+                            {winner && (
+                                <div className="menu-container" style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.9)', padding: '30px', borderRadius: '10px' }}>
+                                    <h2 style={{ fontSize: '2rem', marginBottom: '20px' }}>
+                                        {winner === '引き分け' ? '引き分け！' : `${winner}の勝利！`}
+                                    </h2>
+                                    <button
+                                        onClick={() => {
+                                            setStep(0);
+                                            setGameStarted(false);
+                                            setGameMode(null);
+                                            setPlayerCharId(null);
+                                            setAiCharId(null);
+                                            setWinner(null);
+                                            setScore({ left: 0, right: 0 });
+                                            setTimeLeft(0);
+                                        }}
+                                        className="menu-btn"
+                                    >
+                                        メニューに戻る
+                                    </button>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>
