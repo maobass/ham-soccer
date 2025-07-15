@@ -76,7 +76,7 @@
 
         canvas {
             width: 100vw !important;
-            height: 60vh !important;
+            height: 100vh !important;
             max-width: 100vw;
             max-height: 100vh;
             border: 2px solid #333;
@@ -155,6 +155,7 @@
             align-items: center;
             font-size: 18px;
             font-weight: bold;
+            padding-top: calc(15px + env(safe-area-inset-top));
         }
         
         .game-info {
@@ -182,7 +183,7 @@
         
         @media (orientation: landscape) {
             canvas {
-                max-height: 70vh;
+                max-height: 100vh;
             }
             
             .controls {
