@@ -220,7 +220,7 @@
         const GOAL_HEIGHT = 120;
         const GRAVITY = 0.6;
         const SLIME_SPEED = 5;
-        const SLIME_JUMP_POWER = -15;
+        const SLIME_JUMP_POWER = -12;
         const BALL_DAMPING = 0.99;
         const BALL_BOUNCE_DAMPING = 0.8;
         const MAX_BALL_SPEED = 13;
@@ -450,32 +450,36 @@
             useEffect(() => {
                 const canvas = canvasRef.current;
                 if (!canvas) return;
-                let touchIdentifiers = {}; // マルチタッチ追跡
+                let joystickTouchId = -1; // ジョイスティック専用タッチID
+                let jumpActive = false;
                 const scaleX = GAME_WIDTH / canvas.clientWidth;
                 const scaleY = GAME_HEIGHT / canvas.clientHeight;
                 const handleTouchStart = (e) => {
                     e.preventDefault();
                     for (let touch of e.changedTouches) {
-                        touchIdentifiers[touch.identifier] = true;
                         const x = touch.clientX * scaleX;
                         const y = touch.clientY * scaleY;
-                        if (!joystickRef.current.active && x < GAME_WIDTH / 2 && y > GAME_HEIGHT / 2) {
+                        if (joystickTouchId === -1 && x < GAME_WIDTH / 2 && y > GAME_HEIGHT / 2) {
                             // ジョイスティック活性化
+                            joystickTouchId = touch.identifier;
                             joystickRef.current.active = true;
                             joystickRef.current.centerX = x;
                             joystickRef.current.centerY = y;
                             joystickRef.current.currentX = x;
                             joystickRef.current.currentY = y;
                         } else {
-                            // ジョイスティック外: ジャンプ
-                            playerControlRef.current.jump = true;
+                            // 右側限定でジャンプ
+                            if (x > GAME_WIDTH / 2) {
+                                jumpActive = true;
+                                playerControlRef.current.jump = true;
+                            }
                         }
                     }
                 };
                 const handleTouchMove = (e) => {
                     e.preventDefault();
                     for (let touch of e.touches) {
-                        if (joystickRef.current.active && touchIdentifiers[touch.identifier]) {
+                        if (touch.identifier === joystickTouchId) {
                             const x = touch.clientX * scaleX;
                             const y = touch.clientY * scaleY;
                             const dx = x - joystickRef.current.centerX;
@@ -498,12 +502,14 @@
                 const handleTouchEnd = (e) => {
                     e.preventDefault();
                     for (let touch of e.changedTouches) {
-                        delete touchIdentifiers[touch.identifier];
-                    }
-                    if (Object.keys(touchIdentifiers).length === 0) {
-                        joystickRef.current.active = false;
-                        playerControlRef.current.vx = 0;
-                        playerControlRef.current.jump = false;
+                        if (touch.identifier === joystickTouchId) {
+                            joystickTouchId = -1;
+                            joystickRef.current.active = false;
+                            playerControlRef.current.vx = 0;
+                        } else {
+                            jumpActive = false;
+                            playerControlRef.current.jump = false;
+                        }
                     }
                 };
                 canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
